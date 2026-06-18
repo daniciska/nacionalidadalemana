@@ -38,6 +38,11 @@ create policy "anon_insert_only"
   to anon
   with check (true);
 
+-- 🔒 PASO FINAL (solo cuando el captcha y la función /api/lead estén funcionando):
+-- cierra la inserción pública directa para que TODO pase por el servidor con captcha.
+-- Descomenta y ejecuta esta línea:
+--   drop policy if exists "anon_insert_only" on public.leads;
+
 -- (Opcional) Vista rápida para tu panel: casos viables o dudosos primero.
 create or replace view public.leads_resumen as
 select

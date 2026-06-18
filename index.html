@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Evaluación de nacionalidad alemana · German citizenship check</title>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=cfReady&render=explicit" async defer></script>
 <style>
   :root{
     --card:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
@@ -97,7 +98,13 @@
    CONFIG — credenciales de Supabase (ver README_despliegue.md).
    Vacías = modo demo (guarda en el navegador).
    ========================================================================= */
-const CONFIG = { SUPABASE_URL:"https://tosqlwepfsotlyzyinyr.supabase.co", SUPABASE_ANON_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvc3Fsd2VwZnNvdGx5enlpbnlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDk5MTQsImV4cCI6MjA5NzM4NTkxNH0.-AC4WgESZcc7TWa5Wmi71tWC4eJ-EwzB1Q_YaW5lGAc" };
+const CONFIG = {
+  // Registros vía /api/lead (servidor, con captcha). Estos dos son el fallback durante la transición.
+  SUPABASE_URL:"https://tosqlwepfsotlyzyinyr.supabase.co",
+  SUPABASE_ANON_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvc3Fsd2VwZnNvdGx5enlpbnlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDk5MTQsImV4cCI6MjA5NzM4NTkxNH0.-AC4WgESZcc7TWa5Wmi71tWC4eJ-EwzB1Q_YaW5lGAc",
+  // Pega aquí tu "Site Key" de Cloudflare Turnstile (es pública). Vacío = sin captcha.
+  TURNSTILE_SITEKEY:""
+};
 
 let LANG="es";
 const T=(es,en)=>LANG==="es"?es:en;
@@ -113,7 +120,7 @@ const blank=()=>({
   contact:{},
   bothNoted:false,
   sessionId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"s"+Date.now()+Math.round(Math.random()*1e6),
-  partialSaved:false,
+  partialSaved:false, sessionPass:null,
   screen:"intro"
 });
 let state=blank();
@@ -469,6 +476,7 @@ function render(){
 
   if(s==="contact"){ setBar(12);
     const c=state.contact;
+    const okContact = (c.email||c.phone)&&c.consent&&(!CONFIG.TURNSTILE_SITEKEY||c.turnstileToken);
     app.innerHTML=`<div class="step-label">${T("Tu contacto","Your contact")}</div>
       <div class="q">${T("¿A dónde te enviamos tu evaluación?","Where shall we send your assessment?")}</div>
       <div class="qhint">${T("Déjanos tu correo y, al terminar el test, te enviamos tu resultado y los próximos pasos para tu caso.","Leave your email and, when you finish, we'll send your result and the next steps for your case.")}</div>
@@ -478,7 +486,9 @@ function render(){
         <input type="checkbox" style="width:auto;margin-top:3px" ${c.consent?"checked":""} onchange="state.contact.consent=this.checked;chk()">
         <span>${T("Autorizo el tratamiento de mis datos personales para evaluar mi caso y ser contactado/a, conforme a la Ley 19.628 (Chile) y al RGPD (UE). Puedo solicitar acceder a ellos o eliminarlos en cualquier momento.","I authorize the processing of my personal data to assess my case and be contacted, under Law 19.628 (Chile) and the GDPR (EU). I can request access to or deletion of my data at any time.")}</span>
       </label>
-      ${navBtns(T("Continuar","Continue"),!!((c.email||c.phone)&&c.consent))}`;
+      ${CONFIG.TURNSTILE_SITEKEY?`<div id="cf" style="margin-top:12px"></div>`:""}
+      ${navBtns(T("Continuar","Continue"),!!okContact)}`;
+    mountCaptcha();
     return;
   }
 
@@ -560,7 +570,7 @@ function chk(){ const b=document.getElementById("nx"); if(!b) return;
   const s=state.screen;
   if(s==="applicant") b.disabled=!state.applicant.name;
   if(s==="build_person") b.disabled=!(state.draft.name&&state.draft.childInWedlock);
-  if(s==="contact") b.disabled=!((state.contact.email||state.contact.phone)&&state.contact.consent);
+  if(s==="contact") b.disabled=!((state.contact.email||state.contact.phone)&&state.contact.consent&&(!CONFIG.TURNSTILE_SITEKEY||state.contact.turnstileToken));
 }
 function pickRel(v){ if(v==="stop"){ snapshot(); buildFactsQueue(); state.screen= state.factsQueue.length?"facts":"result"; render(); return; }
   if(v==="ambos"){ state.bothNoted=true; state.draft={}; go("build_which"); return; }
@@ -610,6 +620,17 @@ function setLang(l){ LANG=l; document.documentElement.lang=l;
   document.getElementById("es").classList.toggle("on",l==="es");
   document.getElementById("en").classList.toggle("on",l==="en"); render(); }
 
+function mountCaptcha(){
+  if(!CONFIG.TURNSTILE_SITEKEY || !window.turnstile) return;
+  const el=document.getElementById("cf"); if(!el || el.dataset.rendered) return;
+  el.dataset.rendered="1";
+  try{ turnstile.render(el,{sitekey:CONFIG.TURNSTILE_SITEKEY,
+    callback:function(t){ state.contact.turnstileToken=t; chk(); },
+    "expired-callback":function(){ state.contact.turnstileToken=""; chk(); }}); }catch(e){}
+}
+function cfReady(){ if(state && state.screen==="contact") mountCaptcha(); }
+if(typeof window!=="undefined") window.cfReady=cfReady;
+
 /* ---------------- persistencia ---------------- */
 async function pushLead(status, vias, checklist){
   const created=new Date().toISOString();
@@ -619,14 +640,24 @@ async function pushLead(status, vias, checklist){
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null, phone:state.contact.phone||null,
     answers, verdict};
   const note=document.getElementById("saved");
+  const ok=()=>{ if(note) note.textContent=T("✓ Registro guardado","✓ Submission saved"); };
+  // 1) vía servidor (verifica captcha e inserta con clave de servidor)
+  try{
+    const r=await fetch("/api/lead",{method:"POST", keepalive:true, headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(Object.assign({}, body, {token:state.contact.turnstileToken||null, pass:state.sessionPass||null}))});
+    if(r.ok){ const d=await r.json().catch(()=>({})); if(status==="parcial" && d.pass) state.sessionPass=d.pass; ok(); return; }
+  }catch(e){}
+  // 2) fallback: inserción directa (transición, mientras se termina de configurar el servidor)
   if(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY){
     try{ const r=await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/leads`,{method:"POST", keepalive:true,
         headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON_KEY,"Authorization":`Bearer ${CONFIG.SUPABASE_ANON_KEY}`,"Prefer":"return=minimal"},
         body:JSON.stringify(body)});
-      if(note) note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved"):T("No se pudo guardar (revisa la configuración).","Could not save (check configuration)."); }
-    catch(e){ if(note) note.textContent=T("Error de conexión al guardar.","Connection error while saving."); }
-  } else { const all=JSON.parse(localStorage.getItem("leads")||"[]"); all.push(body); localStorage.setItem("leads",JSON.stringify(all));
-    if(note) note.textContent=T("Modo demo: guardado en este navegador. Configura Supabase para centralizar los leads.","Demo mode: saved in this browser. Configure Supabase to centralize leads."); }
+      if(note) note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved"):T("No se pudo guardar.","Could not save."); return; }
+    catch(e){}
+  }
+  // 3) demo local
+  const all=JSON.parse(localStorage.getItem("leads")||"[]"); all.push(body); localStorage.setItem("leads",JSON.stringify(all));
+  if(note) note.textContent=T("Modo demo: guardado en este navegador.","Demo mode: saved in this browser.");
 }
 function savePartial(){ if(state.partialSaved) return; state.partialSaved=true; pushLead("parcial", [], []); }
 
