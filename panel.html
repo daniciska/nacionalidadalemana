@@ -148,8 +148,8 @@ function card(l){
     <div class="actions">
       <a class="btn" href="mailto:${esc(l.email||"")}">✉ Email</a>
       ${wa?`<a class="btn" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}
-      ${l.status==="completo"?`<button class="btn" onclick='detail("${l.id}")'>Ver detalle</button>`:""}
-      <button class="btn btn-danger" onclick='del("${l.id}","${esc(l.name||"")}")'>Borrar</button>
+      ${l.status==="completo"?`<button class="btn" onclick="detail('${l.id}')">Ver detalle</button>`:""}
+      <button class="btn btn-danger" onclick="del('${l.id}')">Borrar</button>
     </div>
   </div>`;
 }
@@ -186,7 +186,8 @@ function detail(id){
   document.body.appendChild(m);
 }
 
-async function del(id,name){
+async function del(id){
+  const l=LEADS.find(x=>x.id===id); const name=l?l.name:"";
   if(!confirm("¿Borrar el lead de "+(name||"este registro")+"? No se puede deshacer.")) return;
   try{ const r=await api("DELETE","?id="+encodeURIComponent(id)); if(r.ok){ LEADS=LEADS.filter(x=>x.id!==id); render(); } else { alert("No se pudo borrar."); } }catch(e){}
 }

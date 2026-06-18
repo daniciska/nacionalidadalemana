@@ -11,8 +11,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "https://tosqlwepfsotlyzyinyr.s
 
 module.exports = async (req, res) => {
   const pass = process.env.ADMIN_PASSWORD;
-  const given = req.headers["x-admin-password"] || (req.query && req.query.pw);
-  if (!pass || given !== pass) return res.status(401).json({ error: "Contraseña incorrecta" });
+  const given = req.headers["x-admin-password"] || "";
+  // comparación de longitud constante para evitar fugas por tiempo
+  function safeEq(a,b){ if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length) return false; let r=0; for(let i=0;i<a.length;i++) r|=a.charCodeAt(i)^b.charCodeAt(i); return r===0; }
+  if (!pass || !safeEq(given, pass)) return res.status(401).json({ error: "Contraseña incorrecta" });
 
   const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!KEY) return res.status(500).json({ error: "Falta SUPABASE_SERVICE_ROLE_KEY en Vercel" });
