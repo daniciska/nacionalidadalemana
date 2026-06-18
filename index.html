@@ -150,6 +150,7 @@ function buildFactsQueue(){
   q.push("f_mil28");
   q.push("f_namechange");
   q.push("f_lives");
+  q.push("f_relative");
   q.push("f_notes");
   state.factsQueue=q; state.fIdx=0;
 }
@@ -296,6 +297,7 @@ function analyze(){
   if(A.facts.adoption==="si") inv.push(T("Revisar con un especialista si la adopción en tu línea transmite la nacionalidad (edad del adoptado, nacionalidad del adoptante, fecha).","Have a specialist review whether the adoption in your line transmits citizenship (adoptee's age, adopter's nationality, date)."));
   if(A.facts.mil28==="si") inv.push(T("Revisar con un especialista si el servicio militar voluntario en un ejército extranjero causó pérdida de la nacionalidad (§28).","Have a specialist check whether voluntary service in a foreign army caused loss of citizenship (§28)."));
   if(A.facts.namechange==="si") inv.push(T("Reunir documentos que justifiquen los cambios de apellido / ortografía / identidad (deben acreditar que es la misma persona).","Gather documents justifying surname / spelling / identity changes (they must prove it's the same person)."));
+  if(A.facts.relative==="si") inv.push(T("✓ Un familiar ya obtuvo la nacionalidad por el mismo antepasado: pídele su certificado de nacionalidad alemana o el número de expediente. Es el respaldo más fuerte y suele acelerar tu trámite.","✓ A relative already obtained citizenship through the same ancestor: ask them for their German citizenship certificate or case number. It's the strongest backing and usually speeds up your process."));
 
   return {vias, investigate:inv};
 }
@@ -472,6 +474,11 @@ function render(){
       html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} vives actualmente en Alemania?`,`Do ${esc(state.applicant.name||"you")} currently live in Germany?`)}</div>
         ${chips("",[["si","Sí","Yes"],["no","No","No"]],"pickFact5",state.facts.lives)}`;
       html+=navBtns(T("Siguiente","Next"),!!state.facts.lives);
+    } else if(f==="f_relative"){
+      html+=`<div class="q">${T("¿Algún familiar tuyo ya obtuvo la nacionalidad alemana por este mismo antepasado?","Has any relative of yours already obtained German citizenship through this same ancestor?")}</div>
+        <div class="qhint">${T("Si alguien de tu familia ya lo logró por la misma línea, es una señal muy fuerte para tu caso.","If someone in your family already succeeded through the same line, it's a very strong signal for your case.")}</div>
+        ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactRel",state.facts.relative)}`;
+      html+=navBtns(T("Siguiente","Next"),!!state.facts.relative);
     } else if(f==="f_notes"){
       html+=`<div class="q">${T("¿Algo más que quieras contarnos sobre tu caso? (opcional)","Anything else you'd like to tell us about your case? (optional)")}</div>
         <div class="qhint">${T("Por ejemplo: historia familiar, datos que no preguntamos, si ya iniciaste algún trámite, o documentos relevantes que tengas.","For example: family history, details we didn't ask, whether you've already started any procedure, or relevant documents you have.")}</div>
@@ -600,6 +607,7 @@ function pickFactAdage(v){ state.facts.adoption_age=v; render(); }
 function pickFactMar(v){ state.facts.marriageloss=v; render(); }
 function pickFactMil(v){ state.facts.mil28=v; render(); }
 function pickFactNc(v){ state.facts.namechange=v; render(); }
+function pickFactRel(v){ state.facts.relative=v; render(); }
 function pickFact5(v){ state.facts.lives=v; render(); }
 
 function advance(){
@@ -616,7 +624,7 @@ function advance(){
     render(); return;
   }
   if(s==="facts"){ const f=curFact();
-    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_lives:"lives"};
+    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_relative:"relative",f_lives:"lives"};
     if(okMap[f] && !state.facts[okMap[f]]) return; nextFact(); return;
   }
   if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; savePartial(); go("build_rel"); return; }
