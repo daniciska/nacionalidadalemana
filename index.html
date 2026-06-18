@@ -112,6 +112,8 @@ const blank=()=>({
   factsQueue:[], fIdx:0,
   contact:{},
   bothNoted:false,
+  sessionId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"s"+Date.now()+Math.round(Math.random()*1e6),
+  partialSaved:false,
   screen:"intro"
 });
 let state=blank();
@@ -152,7 +154,7 @@ function nextFact(){
   if(curFact()==="f_natz25" && state.facts.natz25==="noeu_apeticion"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_when"); }
   if(curFact()==="f_adoption" && state.facts.adoption==="si"){ state.factsQueue.splice(state.fIdx+1,0,"f_adoption_age"); }
   state.fIdx++;
-  if(state.fIdx>=state.factsQueue.length){ go("contact"); } else { go("facts"); }
+  if(state.fIdx>=state.factsQueue.length){ go("result"); } else { go("facts"); }
 }
 
 /* =========================================================================
@@ -465,19 +467,18 @@ function render(){
     app.innerHTML=html; return;
   }
 
-  if(s==="contact"){ setBar(92);
+  if(s==="contact"){ setBar(12);
     const c=state.contact;
-    app.innerHTML=`<div class="step-label">${T("Casi listo","Almost done")}</div>
-      <div class="q">${T("¿A dónde te enviamos tu informe?","Where shall we send your report?")}</div>
-      <div class="qhint">${T("Te preparamos un resumen de tu evaluación y los próximos pasos para tu caso.","We'll prepare a summary of your assessment and the next steps for your case.")}</div>
-      <div class="field"><label>${T("Nombre","Name")}</label><input value="${esc(c.name||state.applicant.name||"")}" oninput="state.contact.name=this.value"></div>
+    app.innerHTML=`<div class="step-label">${T("Tu contacto","Your contact")}</div>
+      <div class="q">${T("¿A dónde te enviamos tu evaluación?","Where shall we send your assessment?")}</div>
+      <div class="qhint">${T("Déjanos tu correo y, al terminar el test, te enviamos tu resultado y los próximos pasos para tu caso.","Leave your email and, when you finish, we'll send your result and the next steps for your case.")}</div>
       <div class="field"><label>Email</label><input type="email" value="${esc(c.email||"")}" oninput="state.contact.email=this.value;chk()"></div>
       <div class="field"><label>${T("Teléfono / WhatsApp","Phone / WhatsApp")}</label><input value="${esc(c.phone||"")}" oninput="state.contact.phone=this.value;chk()"></div>
       <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:8px;cursor:pointer">
         <input type="checkbox" style="width:auto;margin-top:3px" ${c.consent?"checked":""} onchange="state.contact.consent=this.checked;chk()">
         <span>${T("Autorizo el tratamiento de mis datos personales para evaluar mi caso y ser contactado/a, conforme a la Ley 19.628 (Chile) y al RGPD (UE). Puedo solicitar acceder a ellos o eliminarlos en cualquier momento.","I authorize the processing of my personal data to assess my case and be contacted, under Law 19.628 (Chile) and the GDPR (EU). I can request access to or deletion of my data at any time.")}</span>
       </label>
-      ${navBtns(T("Ver mi resultado","See my result"),!!((c.email||c.phone)&&c.consent))}`;
+      ${navBtns(T("Continuar","Continue"),!!((c.email||c.phone)&&c.consent))}`;
     return;
   }
 
@@ -547,7 +548,7 @@ function renderResult(){
   if(state.bothNoted) html+=`<div class="res b"><span class="badge">${T("Otra rama","Other branch")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una rama; vuelve a hacer el test para evaluar la otra — podría abrir una segunda vía.","You indicated German roots on both sides. This evaluated one branch; take the test again to assess the other — it could open a second route.")}</p></div>`;
   html+=`<p class="lead" style="margin-top:16px">${T("Te contactaremos con un análisis detallado y la lista de documentos para tu caso.","We'll contact you with a detailed analysis and the document list for your case.")}</p>`;
   html+=`<p class="savednote" id="saved"></p>`;
-  document.getElementById("app").innerHTML=html; save(vias, checklist);
+  document.getElementById("app").innerHTML=html; pushLead("completo", vias, checklist);
 }
 function renderTreeWithBreak(vias){
   const A=vias.find(v=>v.k==="A");
@@ -561,12 +562,12 @@ function chk(){ const b=document.getElementById("nx"); if(!b) return;
   if(s==="build_person") b.disabled=!(state.draft.name&&state.draft.childInWedlock);
   if(s==="contact") b.disabled=!((state.contact.email||state.contact.phone)&&state.contact.consent);
 }
-function pickRel(v){ if(v==="stop"){ snapshot(); buildFactsQueue(); state.screen= state.factsQueue.length?"facts":"contact"; render(); return; }
+function pickRel(v){ if(v==="stop"){ snapshot(); buildFactsQueue(); state.screen= state.factsQueue.length?"facts":"result"; render(); return; }
   if(v==="ambos"){ state.bothNoted=true; state.draft={}; go("build_which"); return; }
   state.draft={rel:v}; go("build_person"); }
 function pickWhich(v){ state.draft={rel:v}; go("build_person"); }
 function pickCitizen(v){ snapshot(); const last=state.chain[state.chain.length-1]; last.germanCitizen=v;
-  if(v==="si"){ buildFactsQueue(); state.screen=state.factsQueue.length?"facts":"contact"; }
+  if(v==="si"){ buildFactsQueue(); state.screen=state.factsQueue.length?"facts":"result"; }
   else { state.draft={}; state.screen="build_rel"; }
   render(); }
 function pickWed(v){ state.draft.childInWedlock=v; render(); }
@@ -587,7 +588,7 @@ function pickFact5(v){ state.facts.lives=v; render(); }
 function advance(){
   const s=state.screen;
   if(s==="intro"){ go("applicant"); return; }
-  if(s==="applicant"){ if(!state.applicant.name) return; go("build_rel"); return; }
+  if(s==="applicant"){ if(!state.applicant.name) return; go("contact"); return; }
   if(s==="build_person"){
     if(!(state.draft.name&&state.draft.childInWedlock)) return;
     snapshot();
@@ -601,7 +602,7 @@ function advance(){
     const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_lives:"lives"};
     if(!state.facts[okMap[f]]) return; nextFact(); return;
   }
-  if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; go("result"); return; }
+  if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; savePartial(); go("build_rel"); return; }
   if(s==="result"){ return; }
 }
 
@@ -610,21 +611,24 @@ function setLang(l){ LANG=l; document.documentElement.lang=l;
   document.getElementById("en").classList.toggle("on",l==="en"); render(); }
 
 /* ---------------- persistencia ---------------- */
-async function save(vias, checklist){
-  const payload={ created_at:new Date().toISOString(), lang:LANG,
+async function pushLead(status, vias, checklist){
+  const created=new Date().toISOString();
+  const answers={applicant:state.applicant, chain:state.chain, facts:state.facts, investigate:checklist||[], consent:state.contact.consent===true, consent_at:created};
+  const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null}));
+  const body={session_id:state.sessionId, status, lang:LANG,
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null, phone:state.contact.phone||null,
-    applicant:state.applicant, chain:state.chain, facts:state.facts, investigate:checklist||[],
-    verdict:vias.map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null})) };
+    answers, verdict};
   const note=document.getElementById("saved");
   if(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY){
-    try{ const r=await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/leads`,{method:"POST",
+    try{ const r=await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/leads`,{method:"POST", keepalive:true,
         headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON_KEY,"Authorization":`Bearer ${CONFIG.SUPABASE_ANON_KEY}`,"Prefer":"return=minimal"},
-        body:JSON.stringify({lang:payload.lang,name:payload.name,email:payload.email,phone:payload.phone,answers:{applicant:payload.applicant,chain:payload.chain,facts:payload.facts,investigate:payload.investigate,consent:state.contact.consent===true,consent_at:payload.created_at},verdict:payload.verdict})});
-      note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved"):T("No se pudo guardar (revisa la configuración).","Could not save (check configuration)."); }
-    catch(e){ note.textContent=T("Error de conexión al guardar.","Connection error while saving."); }
-  } else { const all=JSON.parse(localStorage.getItem("leads")||"[]"); all.push(payload); localStorage.setItem("leads",JSON.stringify(all));
-    note.textContent=T("Modo demo: guardado en este navegador. Configura Supabase para centralizar los leads.","Demo mode: saved in this browser. Configure Supabase to centralize leads."); }
+        body:JSON.stringify(body)});
+      if(note) note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved"):T("No se pudo guardar (revisa la configuración).","Could not save (check configuration)."); }
+    catch(e){ if(note) note.textContent=T("Error de conexión al guardar.","Connection error while saving."); }
+  } else { const all=JSON.parse(localStorage.getItem("leads")||"[]"); all.push(body); localStorage.setItem("leads",JSON.stringify(all));
+    if(note) note.textContent=T("Modo demo: guardado en este navegador. Configura Supabase para centralizar los leads.","Demo mode: saved in this browser. Configure Supabase to centralize leads."); }
 }
+function savePartial(){ if(state.partialSaved) return; state.partialSaved=true; pushLead("parcial", [], []); }
 
 render();
 </script>

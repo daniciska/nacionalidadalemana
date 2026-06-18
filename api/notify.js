@@ -47,6 +47,9 @@ module.exports = async (req, res) => {
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
   const rec = (body && body.record) || body || {};
 
+  // Solo avisamos cuando el cuestionario se completa; los "parciales" quedan en la tabla para seguimiento.
+  if (rec.status === "parcial") return res.status(200).json({ ok: true, skipped: "parcial" });
+
   const name = rec.name || "Sin nombre";
   const email = rec.email || "—";
   const phone = rec.phone || "—";
