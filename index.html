@@ -33,8 +33,9 @@
   .opt:hover{border-color:var(--brand);background:#f8faff}
   .opt.sel{border-color:var(--brand);background:#eff4ff}
   .opt small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}
-  input,select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;font-size:15px;font-family:inherit}
-  input:focus,select:focus{outline:none;border-color:var(--brand)}
+  input,select,textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;font-size:15px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
+  textarea{resize:vertical;min-height:96px;line-height:1.45}
   .field{margin-bottom:14px}
   .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:600}
   .row{display:flex;gap:10px}.row .field{flex:1}
@@ -149,6 +150,7 @@ function buildFactsQueue(){
   q.push("f_mil28");
   q.push("f_namechange");
   q.push("f_lives");
+  q.push("f_notes");
   state.factsQueue=q; state.fIdx=0;
 }
 function curFact(){ return state.factsQueue[state.fIdx]; }
@@ -470,6 +472,11 @@ function render(){
       html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} vives actualmente en Alemania?`,`Do ${esc(state.applicant.name||"you")} currently live in Germany?`)}</div>
         ${chips("",[["si","Sí","Yes"],["no","No","No"]],"pickFact5",state.facts.lives)}`;
       html+=navBtns(T("Siguiente","Next"),!!state.facts.lives);
+    } else if(f==="f_notes"){
+      html+=`<div class="q">${T("¿Algo más que quieras contarnos sobre tu caso? (opcional)","Anything else you'd like to tell us about your case? (optional)")}</div>
+        <div class="qhint">${T("Por ejemplo: historia familiar, datos que no preguntamos, si ya iniciaste algún trámite, o documentos relevantes que tengas.","For example: family history, details we didn't ask, whether you've already started any procedure, or relevant documents you have.")}</div>
+        <div class="field"><textarea rows="5" oninput="state.facts.notes=this.value" placeholder="${T("Escribe aquí…","Write here…")}">${esc(state.facts.notes||"")}</textarea></div>`;
+      html+=navBtns(T("Ver mi resultado","See my result"),true);
     }
     app.innerHTML=html; return;
   }
@@ -610,7 +617,7 @@ function advance(){
   }
   if(s==="facts"){ const f=curFact();
     const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_lives:"lives"};
-    if(!state.facts[okMap[f]]) return; nextFact(); return;
+    if(okMap[f] && !state.facts[okMap[f]]) return; nextFact(); return;
   }
   if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; savePartial(); go("build_rel"); return; }
   if(s==="result"){ return; }

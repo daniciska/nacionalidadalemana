@@ -82,6 +82,11 @@ module.exports = async (req, res) => {
        <ul style="margin:0;padding-left:18px;color:#334155;font-size:13px">${investigate.map(x=>`<li style="margin-bottom:3px">${esc(x)}</li>`).join("")}</ul>`
     : "";
 
+  const notesHtml = (ans.facts && ans.facts.notes)
+    ? `<h3 style="font-size:14px;margin:18px 0 6px">Nota del solicitante</h3>
+       <div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;color:#334155">${esc(ans.facts.notes)}</div>`
+    : "";
+
   const html = `
     <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
       <h2 style="margin:0 0 4px">🇩🇪 Nuevo lead — Nacionalidad Alemana</h2>
@@ -100,6 +105,7 @@ module.exports = async (req, res) => {
       ${viaCards || `<div style="color:#64748b;font-size:13px">Sin vías determinadas — requiere investigar más.</div>`}
 
       ${invList}
+      ${notesHtml}
 
       <p style="color:#94a3b8;font-size:11.5px;margin-top:22px;border-top:1px solid #e2e8f0;padding-top:12px">
         Orientación preliminar automática (no es asesoría jurídica). El detalle completo del árbol y las respuestas está en Supabase → Table Editor → <b>leads</b>.
