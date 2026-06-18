@@ -1,0 +1,8 @@
+# Archivos temporales de pruebas
+_*.js
+_*.json
+
+# Sistema / dependencias
+node_modules/
+.DS_Store
+Thumbs.db
