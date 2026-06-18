@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de leads · Nacionalidad Alemana</title>
+<style>
+  :root{
+    --card:#fff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --bg:#f1f5f9; --brand:#1d4ed8;
+    --green:#15803d;--amber:#b45309;--blue:#1d4ed8;--red:#b91c1c;
+    --green-bg:#dcfce7;--amber-bg:#fef3c7;--blue-bg:#dbeafe;--red-bg:#fee2e2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:18px;color:var(--brand)}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;color:var(--ink)}
+  .btn:hover{border-color:var(--brand)}
+  .btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn-danger{color:var(--red);border-color:var(--red-bg)}
+  input{border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;width:100%}
+  input:focus{outline:none;border-color:var(--brand)}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .chips{display:flex;gap:6px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .grow{flex:1;min-width:160px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .lead{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 16px;margin-bottom:10px}
+  .lead .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .lead .nm{font-weight:700;font-size:16px}
+  .lead .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;color:#fff;margin:0 4px 4px 0}
+  .b-g{background:var(--green)} .b-a{background:var(--amber)} .b-b{background:var(--blue)} .b-r{background:var(--red)} .b-x{background:#94a3b8}
+  .st-completo{background:var(--green-bg);color:var(--green);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .st-parcial{background:var(--amber-bg);color:var(--amber);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .actions a,.actions button{font-size:13px;text-decoration:none}
+  .vias{margin-top:8px}
+  .muted{color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:40px 0}
+  /* detalle */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;z-index:10}
+  .sheet{background:#fff;border-radius:16px;max-width:620px;width:100%;padding:22px}
+  .tree2{margin:10px 0}
+  .tnode{display:flex;gap:12px;align-items:flex-start;padding:10px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+  .tnode .gen{font-size:10px;font-weight:800;text-transform:uppercase;color:var(--brand);min-width:66px;padding-top:2px}
+  .tnode .nm2{font-weight:700;font-size:14px}.tnode .mt{color:var(--muted);font-size:12px}
+  .tnode.de{border-color:var(--green);background:var(--green-bg)}
+  .tnode.brk{border-color:var(--red);background:var(--red-bg)}
+  .tnode.warn{border-color:var(--amber);background:var(--amber-bg)}
+  .tconn{width:2px;height:14px;background:var(--line);margin-left:34px}
+  .res{border:1px solid;border-radius:12px;padding:11px 13px;margin-bottom:9px}
+  .res.g{border-color:var(--green);background:var(--green-bg)} .res.a{border-color:var(--amber);background:var(--amber-bg)}
+  .res.b{border-color:var(--blue);background:var(--blue-bg)} .res.r{border-color:var(--red);background:var(--red-bg)}
+  h3{font-size:14px;margin:18px 0 8px}
+  .docs{font-size:13px;color:var(--muted);padding-left:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⚖️ Panel de leads</div>
+    <div id="hbtns"></div>
+  </header>
+  <div id="app"></div>
+</div>
+
+<script>
+const API="/api/leads";
+const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let PW=sessionStorage.getItem("panel_pw")||"";
+let LEADS=[], VIEW="seguimiento", FILTER="todos", Q="";
+
+const isGerman=p=>!!(p&&((p.country&&p.country.toLowerCase().match(/alemania|germany|deutschland/))||p.germanCitizen==="si"));
+function genLabel(d,rel){const f=rel==="madre";const es=["",f?"Madre":"Padre",f?"Abuela":"Abuelo",f?"Bisabuela":"Bisabuelo",f?"Tatarabuela":"Tatarabuelo"];return d<es.length?es[d]:"Ancestro/a";}
+const ST={VIABLE:["g","Prometedor"],DUDOSO:["a","Posible"],POCO:["r","Difícil"],INFO:["b","Falta info"]};
+
+async function api(method, qs){
+  const r=await fetch(API+(qs||""),{method:method||"GET",headers:{"x-admin-password":PW}});
+  if(r.status===401){ PW=""; sessionStorage.removeItem("panel_pw"); render(); throw new Error("401"); }
+  return r;
+}
+async function load(){
+  try{
+    const r=await api("GET","?view="+(VIEW==="all"?"all":"seguimiento"));
+    LEADS=await r.json();
+    if(!Array.isArray(LEADS)) LEADS=[];
+    render();
+  }catch(e){ /* 401 manejado */ }
+}
+
+function render(){
+  const hb=document.getElementById("hbtns"), app=document.getElementById("app");
+  if(!PW){
+    hb.innerHTML="";
+    app.innerHTML=`<div class="card" style="max-width:380px;margin:40px auto">
+      <h2 style="margin:0 0 4px">Entrar al panel</h2>
+      <p class="muted" style="margin:0 0 16px;font-size:14px">Ingresa la contraseña de administración.</p>
+      <input id="pw" type="password" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="doLogin()">Entrar</button>
+      <p id="err" style="color:var(--red);font-size:13px;margin-top:10px"></p>
+    </div>`;
+    return;
+  }
+  hb.innerHTML=`<button class="btn" onclick="load()">↻ Actualizar</button>
+    <button class="btn" onclick="logout()">Salir</button>`;
+
+  const completos=LEADS.filter(l=>l.status==="completo").length;
+  const parciales=LEADS.filter(l=>l.status==="parcial").length;
+  let list=LEADS.slice();
+  if(FILTER==="completos") list=list.filter(l=>l.status==="completo");
+  if(FILTER==="incompletos") list=list.filter(l=>l.status==="parcial");
+  if(Q){ const q=Q.toLowerCase(); list=list.filter(l=>((l.name||"")+" "+(l.email||"")).toLowerCase().includes(q)); }
+
+  app.innerHTML=`
+    <div class="toolbar">
+      <div class="chips">
+        <span class="chip ${FILTER==="todos"?"on":""}" onclick="setF('todos')">Todos (${LEADS.length})</span>
+        <span class="chip ${FILTER==="completos"?"on":""}" onclick="setF('completos')">Completos (${completos})</span>
+        <span class="chip ${FILTER==="incompletos"?"on":""}" onclick="setF('incompletos')">Abandonos (${parciales})</span>
+      </div>
+      <div class="grow"><input placeholder="Buscar por nombre o email…" value="${esc(Q)}" oninput="Q=this.value;render()"></div>
+      <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer">
+        <input type="checkbox" style="width:auto" ${VIEW==="all"?"checked":""} onchange="VIEW=this.checked?'all':'seguimiento';load()"> ver todos (con duplicados)
+      </label>
+    </div>
+    ${list.length? list.map(card).join("") : `<div class="empty">Sin leads para mostrar.</div>`}`;
+}
+
+function card(l){
+  const v=Array.isArray(l.verdict)?l.verdict:[];
+  const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
+  const badges=v.slice().sort((a,b)=>(order[a.state]??9)-(order[b.state]??9))
+    .map(x=>{const s=ST[x.state]||["x",x.state];return `<span class="badge b-${s[0]}">${esc(s[1])}</span>`;}).join("")||`<span class="badge b-x">sin veredicto</span>`;
+  const when=(l.created_at||"").replace("T"," ").slice(0,16);
+  const stClass=l.status==="parcial"?"st-parcial":"st-completo";
+  const stTxt=l.status==="parcial"?"Incompleto":"Completo";
+  const wa=(l.phone||"").replace(/[^\d]/g,"");
+  return `<div class="lead">
+    <div class="top">
+      <div><div class="nm">${esc(l.name||"(sin nombre)")}</div>
+        <div class="sub">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc(when)}</div></div>
+      <span class="${stClass}">${stTxt}</span>
+    </div>
+    <div class="vias">${l.status==="parcial"?'<span class="muted" style="font-size:13px">Dejó su contacto pero no terminó.</span>':badges}</div>
+    <div class="actions">
+      <a class="btn" href="mailto:${esc(l.email||"")}">✉ Email</a>
+      ${wa?`<a class="btn" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}
+      ${l.status==="completo"?`<button class="btn" onclick='detail("${l.id}")'>Ver detalle</button>`:""}
+      <button class="btn btn-danger" onclick='del("${l.id}","${esc(l.name||"")}")'>Borrar</button>
+    </div>
+  </div>`;
+}
+
+function detail(id){
+  const l=LEADS.find(x=>x.id===id); if(!l) return;
+  const a=l.answers||{}; const v=Array.isArray(l.verdict)?l.verdict:[];
+  const markA=(v.find(x=>x.via==="A")||{}).mark||null;
+  const rows=[{p:a.applicant||{},rel:null}].concat((a.chain||[]).map(x=>({p:x,rel:x.rel})));
+  const tree=rows.map((row,idx)=>{
+    const p=row.p, isM=markA&&p.name&&p.name===markA.person, isDE=isGerman(p);
+    const cls=isM?(markA.type==="legit"?"warn":"brk"):(isDE?"de":"");
+    const gen=idx===0?"Tú":genLabel(idx,row.rel);
+    const meta=[p.birthYear,p.country].filter(Boolean).join(" · ");
+    let pill="";
+    if(isM) pill=`<div style="margin-top:5px"><span class="badge b-${markA.type==="legit"?"a":"r"}">⚠ ${markA.type==="loss"?"posible pérdida":(markA.type==="legit"?"a revisar":"la línea se corta aquí")}</span></div>`;
+    else if(isDE) pill=`<div style="margin-top:5px"><span class="badge b-g">🇩🇪 raíz alemana</span></div>`;
+    return `<div class="tnode ${cls}"><div class="gen">${esc(gen)}</div><div><div class="nm2">${esc(p.name||"(sin nombre)")}</div>${meta?`<div class="mt">${esc(meta)}</div>`:""}${pill}</div></div>${idx<rows.length-1?'<div class="tconn"></div>':""}`;
+  }).join("");
+  const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
+  const vias=v.slice().sort((x,y)=>(order[x.state]??9)-(order[y.state]??9)).map(x=>{
+    const s=ST[x.state]||["x",x.state];
+    return `<div class="res ${s[0]}"><span class="badge b-${s[0]}">${esc(s[1])}</span><div style="font-weight:700;font-size:14px;margin:5px 0 2px">${esc(x.name||x.via)}</div>${x.msg?`<div style="font-size:13px">${esc(x.msg)}</div>`:""}</div>`;
+  }).join("");
+  const inv=(a.investigate||[]);
+  const m=document.createElement("div"); m.className="modal"; m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div class="sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(l.name||"(sin nombre)")}</h2><button class="btn" onclick="this.closest('.modal').remove()">✕</button></div>
+    <p class="muted" style="font-size:13px;margin:4px 0 0">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc((l.created_at||"").replace("T"," ").slice(0,16))}</p>
+    <h3>Árbol familiar</h3><div class="tree2">${tree}</div>
+    <h3>Vías evaluadas</h3>${vias||'<div class="muted" style="font-size:13px">Sin vías.</div>'}
+    ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function del(id,name){
+  if(!confirm("¿Borrar el lead de "+(name||"este registro")+"? No se puede deshacer.")) return;
+  try{ const r=await api("DELETE","?id="+encodeURIComponent(id)); if(r.ok){ LEADS=LEADS.filter(x=>x.id!==id); render(); } else { alert("No se pudo borrar."); } }catch(e){}
+}
+function setF(f){ FILTER=f; render(); }
+function logout(){ PW=""; sessionStorage.removeItem("panel_pw"); render(); }
+async function doLogin(){
+  PW=document.getElementById("pw").value.trim();
+  if(!PW) return;
+  try{ const r=await api("GET","?view=seguimiento");
+    if(r.ok){ sessionStorage.setItem("panel_pw",PW); LEADS=await r.json(); if(!Array.isArray(LEADS))LEADS=[]; render(); }
+    else { document.getElementById("err").textContent="Contraseña incorrecta o configuración faltante."; PW=""; }
+  }catch(e){ document.getElementById("err").textContent="Contraseña incorrecta."; PW=""; }
+}
+
+if(PW) load(); else render();
+</script>
+</body>
+</html>
