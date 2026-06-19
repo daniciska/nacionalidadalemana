@@ -534,13 +534,13 @@ function render(){
   }
 
   if(s==="contact"){ setBar(12);
-    if(!state.contact.phone) state.contact.phone="+569 ";
+    if(!state.contact.phone) state.contact.phone="+569";
     const c=state.contact;
     app.innerHTML=`<div class="step-label">${T("Tu contacto","Your contact")}</div>
       <div class="q">${T("¿A dónde te enviamos tu evaluación?","Where shall we send your assessment?")}</div>
       <div class="qhint">${T("Déjanos tu correo y, al terminar el test, te enviamos tu resultado y los próximos pasos para tu caso.","Leave your email and, when you finish, we'll send your result and the next steps for your case.")}</div>
       <div class="field"><label>Email</label><input type="email" value="${esc(c.email||"")}" oninput="state.contact.email=this.value;chk()"></div>
-      <div class="field"><label>${T("Teléfono / WhatsApp (con código de país)","Phone / WhatsApp (with country code)")}</label><input type="tel" inputmode="tel" value="${esc(c.phone||"")}" oninput="state.contact.phone=this.value;chk()" placeholder="+569 1234 5678"></div>
+      <div class="field"><label>${T("Teléfono / WhatsApp (con código de país)","Phone / WhatsApp (with country code)")}</label><input type="tel" inputmode="tel" value="${esc(c.phone||"")}" oninput="state.contact.phone=this.value.replace(/\s+/g,'');this.value=state.contact.phone;chk()" placeholder="+56912345678"></div>
       <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:8px;cursor:pointer">
         <input type="checkbox" style="width:auto;margin-top:3px" ${c.consent?"checked":""} onchange="state.contact.consent=this.checked;chk()">
         <span>${T("Autorizo el tratamiento de mis datos personales para evaluar mi caso y ser contactado/a, conforme a la Ley 19.628 (Chile) y al RGPD (UE). Puedo solicitar acceder a ellos o eliminarlos en cualquier momento.","I authorize the processing of my personal data to assess my case and be contacted, under Law 19.628 (Chile) and the GDPR (EU). I can request access to or deletion of my data at any time.")}</span>
@@ -697,6 +697,7 @@ function cfReady(){ if(state && state.screen==="contact") mountCaptcha(); }
 if(typeof window!=="undefined") window.cfReady=cfReady;
 
 function phoneDigits(p){ return (p||"").replace(/\D/g,""); }
+function cleanPhone(p){ return (p||"").replace(/[^\d+]/g,""); }
 function contactOk(){ const c=state.contact;
   return !!((c.email || phoneDigits(c.phone).length>=8) && c.consent && (!CONFIG.TURNSTILE_SITEKEY || c.turnstileToken)); }
 
@@ -707,7 +708,7 @@ async function pushLead(status, vias, checklist){
   const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null,legal:v.legal||null}));
   const body={session_id:state.sessionId, status, lang:LANG,
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null,
-    phone:(phoneDigits(state.contact.phone).length>=8 ? state.contact.phone : null),
+    phone:(phoneDigits(state.contact.phone).length>=8 ? cleanPhone(state.contact.phone) : null),
     answers, verdict};
   const note=document.getElementById("saved");
   const ok=()=>{ if(note) note.textContent=T("✓ Registro guardado","✓ Submission saved"); };
