@@ -237,17 +237,30 @@ function analyze(){
       st="DUDOSO";
       msg=T(`${breakInfo.person} nació fuera del matrimonio, pero sus padres se casaron después (legitimación). Bajo la ley antigua eso podía conferir la nacionalidad — requiere revisión profesional.`,`${breakInfo.person} was born out of wedlock, but the parents married afterwards (legitimation). Under the old law this could confer citizenship — needs professional review.`,`${breakInfo.person} nasceu fora do casamento, mas os pais se casaram depois (legitimação). Pela lei antiga isso podia conferir a nacionalidade — requer revisão profissional.`);
     } else if(breakInfo){
-      st="POCO";
-      msg = breakInfo.reason==="genero"
-        ? T(`La línea se interrumpe en ${breakInfo.person} (nacido/a en ${breakInfo.year}): heredaba de su madre ${breakInfo.parent}, y antes de 1975 la línea materna no transmitía automáticamente.`,
-            `The line breaks at ${breakInfo.person} (born ${breakInfo.year}): inheriting from the mother ${breakInfo.parent}, and before 1975 the maternal line did not transmit automatically.`,
-            `A linha é interrompida em ${breakInfo.person} (nascido/a em ${breakInfo.year}): herdava de sua mãe ${breakInfo.parent}, e antes de 1975 a linha materna não transmitia automaticamente.`)
-        : T(`La línea se interrumpe en ${breakInfo.person}: nacido/a fuera del matrimonio de padre alemán antes de 1993.`,
-            `The line breaks at ${breakInfo.person}: born out of wedlock to a German father before 1993.`,
-            `A linha é interrompida em ${breakInfo.person}: nascido/a fora do casamento de pai alemão antes de 1993.`);
-      // Si además el antepasado alemán tiene pérdida propia (ej. sin Matrikel), se muestran ambos obstáculos
-      if(lossInfo && lossR && lossR[lossInfo.reason]){
-        const lm=lossR[lossInfo.reason]; msg += " " + T("Adicionalmente,","Additionally,","Adicionalmente,") + " " + lm[0].toLowerCase() + lm.slice(1);
+      st="POCO"; // default; se sobreescribe abajo en casos condicionales
+      if(breakInfo.reason==="genero" && lossInfo && (lossInfo.reason==="matrikel"||lossInfo.reason==="matrikel_posible")){
+        // La Matrikel es CONDICIÓN PREVIA: si el antepasado la perdió, la madre nunca heredó y el corte de género no llega a aplicarse.
+        // El mensaje debe ser condicional (SI existe la Matrikel → hay segundo obstáculo), no aditivo.
+        if(lossInfo.reason==="matrikel_posible") st="DUDOSO";
+        msg = lossInfo.reason==="matrikel"
+          ? T(`La transmisión enfrenta dos obstáculos encadenados. El primero es la Matrikel: ${lossInfo.person} emigró antes de 1904 sin inscripción consular, por lo que habría perdido la nacionalidad alemana antes de que ${breakInfo.parent} naciera, y la línea nunca habría comenzado. Si la Matrikel sí existiera, ${breakInfo.parent} habría heredado la ciudadanía — pero entonces aparece el segundo obstáculo: como era mujer y ${breakInfo.person} nació en ${breakInfo.year}, antes de 1975 la línea materna no transmitía automáticamente.`,
+              `The transmission faces two chained obstacles. The first is the Matrikel: ${lossInfo.person} emigrated before 1904 without consular registration, meaning they would have lost German citizenship before ${breakInfo.parent} was born and the line would never have started. If the Matrikel did exist, ${breakInfo.parent} would have inherited citizenship — but then a second obstacle arises: as a woman and ${breakInfo.person} born in ${breakInfo.year}, before 1975 the maternal line did not transmit automatically.`,
+              `A transmissão enfrenta dois obstáculos encadeados. O primeiro é a Matrikel: ${lossInfo.person} emigrou antes de 1904 sem inscrição consular, pelo que teria perdido a nacionalidade alemã antes do nascimento de ${breakInfo.parent}, e a linha nunca teria começado. Se a Matrikel existisse, ${breakInfo.parent} teria herdado a cidadania — mas então surge um segundo obstáculo: como era mulher e ${breakInfo.person} nasceu em ${breakInfo.year}, antes de 1975 a linha materna não transmitia automaticamente.`)
+          : T(`La transmisión enfrenta dos obstáculos encadenados. El primero es la Matrikel: no se puede confirmar si ${lossInfo.person} se inscribió en el registro consular — sin esa inscripción y con más de 10 años de ausencia antes de 1914, pudo haber perdido la nacionalidad alemana, y ${breakInfo.parent} nunca la habría heredado. Si la Matrikel existe, ${breakInfo.parent} sí heredó la ciudadanía alemana de ${lossInfo.person} — pero entonces surge un segundo obstáculo: como era mujer y ${breakInfo.person} nació en ${breakInfo.year}, antes de 1975 la línea materna no transmitía automáticamente.`,
+              `The transmission faces two chained obstacles. The first is the Matrikel: it cannot be confirmed whether ${lossInfo.person} registered at the consulate — without that registration and after more than 10 years abroad before 1914, they may have lost German citizenship, and ${breakInfo.parent} would never have inherited it. If the Matrikel exists, ${breakInfo.parent} did inherit German citizenship from ${lossInfo.person} — but then a second obstacle arises: as a woman and ${breakInfo.person} born in ${breakInfo.year}, before 1975 the maternal line did not transmit automatically.`,
+              `A transmissão enfrenta dois obstáculos encadeados. O primeiro é a Matrikel: não é possível confirmar se ${lossInfo.person} se inscreveu no registro consular — sem essa inscrição e com mais de 10 anos de ausência antes de 1914, pode ter perdido a nacionalidade alemã, e ${breakInfo.parent} nunca a teria herdado. Se a Matrikel existir, ${breakInfo.parent} sim herdou a cidadania alemã de ${lossInfo.person} — mas então surge um segundo obstáculo: como era mulher e ${breakInfo.person} nasceu em ${breakInfo.year}, antes de 1975 a linha materna não transmitia automaticamente.`);
+      } else {
+        msg = breakInfo.reason==="genero"
+          ? T(`La línea se interrumpe en ${breakInfo.person} (nacido/a en ${breakInfo.year}): heredaba de su madre ${breakInfo.parent}, y antes de 1975 la línea materna no transmitía automáticamente.`,
+              `The line breaks at ${breakInfo.person} (born ${breakInfo.year}): inheriting from the mother ${breakInfo.parent}, and before 1975 the maternal line did not transmit automatically.`,
+              `A linha é interrompida em ${breakInfo.person} (nascido/a em ${breakInfo.year}): herdava de sua mãe ${breakInfo.parent}, e antes de 1975 a linha materna não transmitia automaticamente.`)
+          : T(`La línea se interrumpe en ${breakInfo.person}: nacido/a fuera del matrimonio de padre alemán antes de 1993.`,
+              `The line breaks at ${breakInfo.person}: born out of wedlock to a German father before 1993.`,
+              `A linha é interrompida em ${breakInfo.person}: nascido/a fora do casamento de pai alemão antes de 1993.`);
+        // Para lossInfo de otro tipo (no Matrikel), se agregan como obstáculo adicional
+        if(lossInfo && lossR && lossR[lossInfo.reason]){
+          const lm=lossR[lossInfo.reason]; msg += " " + T("Adicionalmente,","Additionally,","Adicionalmente,") + " " + lm[0].toLowerCase() + lm.slice(1);
+        }
       }
     } else if(lossInfo){
       st = lossInfo.reason==="matrikel_posible" ? "DUDOSO" : "POCO";
