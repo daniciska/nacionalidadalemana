@@ -162,7 +162,10 @@ function nextFact(){
     const e=state.facts.emigYear;
     if(e==="pre1904"||e==="1904_1913"||e==="ns"){ state.factsQueue.splice(state.fIdx+1,0,"f_matrikel","f_natz1914"); }
   }
-  if(curFact()==="f_natz25" && state.facts.natz25==="noeu_apeticion"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_when"); }
+  if(curFact()==="f_natz25" && state.facts.natz25==="si_apeticion"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_eu"); }
+  if(curFact()==="f_natz25_eu" && state.facts.natz25_eu==="no"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_year"); }
+  if(curFact()==="f_natz25_year" && state.facts.natz25_year==="antes"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_permit"); }
+  if(curFact()==="f_natz25_permit" && (state.facts.natz25_permit==="no"||state.facts.natz25_permit==="ns")){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_when"); }
   if(curFact()==="f_adoption" && state.facts.adoption==="si"){ state.factsQueue.splice(state.fIdx+1,0,"f_adoption_age"); }
   state.fIdx++;
   if(state.fIdx>=state.factsQueue.length){ go("result"); } else { go("facts"); }
@@ -203,7 +206,10 @@ function analyze(){
     else if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && A.facts.matrikel==="ns") gaps.push(T(`verificar la inscripción consular (Matrikel) de ${G.name} en el archivo invenio`,`check ${G.name}'s consular registration (Matrikel) in the invenio archive`));
     if(["usa","otro"].includes(A.facts.natz1914)) lossInfo=lossInfo||{person:G.name, reason:"natz1914"};
   }
-  if(A.facts.natz25==="noeu_apeticion"){
+  // §25: pérdida por naturalización a petición, no-UE, antes de 2024, sin permiso de conservación
+  const natzLoss = A.facts.natz25==="noeu_apeticion"   // valor directo (compatibilidad)
+    || (A.facts.natz25==="si_apeticion" && A.facts.natz25_eu==="no" && A.facts.natz25_year==="antes" && (A.facts.natz25_permit==="no"||A.facts.natz25_permit==="ns"));
+  if(natzLoss){
     if(A.facts.natz25_when==="despues"){ /* el hijo ya era alemán al naturalizarse el padre: sin pérdida */ }
     else if(A.facts.natz25_when==="ns"){ gaps.push(T("determinar la fecha exacta de la naturalización (si fue antes o después del nacimiento del hijo/a, define si hubo pérdida)","determine the exact naturalization date (whether before or after the child's birth determines if citizenship was lost)")); }
     else lossInfo=lossInfo||{person:(A.applicant.name||T("el solicitante","the applicant")), reason:"stag25"};
@@ -295,6 +301,8 @@ function analyze(){
   }
   if(A.facts.persecution==="ns") inv.push(T("Averiguar si tus antepasados sufrieron persecución nazi (1933–1945).","Find out whether your ancestors suffered Nazi persecution (1933–1945)."));
   if(A.facts.natz25==="ns") inv.push(T("Confirmar si tú o un antepasado se naturalizaron en otro país por solicitud propia.","Confirm whether you or an ancestor naturalized abroad by application."));
+  if(A.facts.natz25==="si_apeticion" && !natzLoss && (A.facts.natz25_eu==="ns"||A.facts.natz25_year==="ns"||A.facts.natz25_permit==="ns"))
+    inv.push(T("Confirmar si esa naturalización causó la pérdida de la nacionalidad alemana: si el país es de la UE/Suiza, el año exacto, y si hubo permiso de conservación.","Confirm whether that naturalization caused loss of German citizenship: whether the country is EU/Switzerland, the exact year, and whether there was a retention permit."));
   if(A.facts.adoption==="si") inv.push(T("Revisar con un especialista si la adopción en tu línea transmite la nacionalidad (edad del adoptado, nacionalidad del adoptante, fecha).","Have a specialist review whether the adoption in your line transmits citizenship (adoptee's age, adopter's nationality, date)."));
   if(A.facts.mil28==="si") inv.push(T("Revisar con un especialista si el servicio militar voluntario en un ejército extranjero causó pérdida de la nacionalidad (§28).","Have a specialist check whether voluntary service in a foreign army caused loss of citizenship (§28)."));
   if(A.facts.namechange==="si") inv.push(T("Reunir documentos que justifiquen los cambios de apellido / ortografía / identidad (deben acreditar que es la misma persona).","Gather documents justifying surname / spelling / identity changes (they must prove it's the same person)."));
@@ -435,14 +443,26 @@ function render(){
       }
       html+=navBtns(T("Siguiente","Next"),!!state.facts.persecution);
     } else if(f==="f_natz25"){
-      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} o alguien de la línea se naturalizó en otro país por solicitud propia?`,`Did ${esc(state.applicant.name||"you")} or someone in the line naturalize in another country by their own application?`)}</div>
-        <div class="qhint">${T("Recibir la nacionalidad del país de nacimiento AL NACER no cuenta como pérdida.","Receiving the birth country's nationality AT BIRTH does not count as loss.")}</div>
-        ${chips("",[["noeu_apeticion","Sí, por solicitud, sin permiso de conservación (no UE, antes 2024)","Yes, by application, without a retention permit (non-EU, before 2024)"],
-                   ["con_permiso","Sí, pero con permiso de conservación (Beibehaltung)","Yes, but with a retention permit (Beibehaltung)"],
-                   ["eu_post","Sí, pero UE/Suiza o desde jul-2024","Yes, but EU/Switzerland or since Jul-2024"],
-                   ["automatica","Solo la del país de nacimiento, al nacer","Only the birth country's, at birth"],
-                   ["no","No","No"],["ns","No sé","Not sure"]],"pickFact4",state.facts.natz25)}`;
+      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} o alguien de tu línea familiar se hizo ciudadano de otro país (se naturalizó) en algún momento?`,`Did ${esc(state.applicant.name||"you")} or someone in your family line become a citizen of another country (naturalize) at some point?`)}</div>
+        <div class="qhint">${T("Nos referimos a obtener otra nacionalidad solicitándola — no a la que se recibe al nacer en un país.","We mean obtaining another nationality by applying for it — not the one received by being born in a country.")}</div>
+        ${chips("",[["si_apeticion","Sí, la solicitó y la obtuvo","Yes, applied for and obtained it"],
+                   ["automatica","No; solo tiene la nacionalidad del país donde nació","No; only has the nationality of the country where they were born"],
+                   ["no","No, ninguna otra","No, none other"],
+                   ["ns","No sé","Not sure"]],"pickFact4",state.facts.natz25)}`;
       html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25);
+    } else if(f==="f_natz25_eu"){
+      html+=`<div class="q">${T("Esa otra nacionalidad, ¿es de un país de la Unión Europea o de Suiza?","Is that other nationality from a European Union country or Switzerland?")}</div>
+        ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactEu",state.facts.natz25_eu)}`;
+      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_eu);
+    } else if(f==="f_natz25_year"){
+      html+=`<div class="q">${T("¿La obtuvo antes del año 2024?","Was it obtained before the year 2024?")}</div>
+        ${chips("",[["antes","Sí, antes de 2024","Yes, before 2024"],["desde2024","No, en 2024 o después","No, in 2024 or later"],["ns","No sé","Not sure"]],"pickFactYear",state.facts.natz25_year)}`;
+      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_year);
+    } else if(f==="f_natz25_permit"){
+      html+=`<div class="q">${T("Antes de naturalizarse, ¿pidió a Alemania un permiso especial para conservar la nacionalidad alemana?","Before naturalizing, did they ask Germany for a special permit to keep their German citizenship?")}</div>
+        <div class="qhint">${T("Se llama «permiso de conservación» (Beibehaltungsgenehmigung). La gran mayoría no lo pedía.","It's called a \"retention permit\" (Beibehaltungsgenehmigung). The vast majority did not request it.")}</div>
+        ${chips("",[["no","No / No lo pidió","No / didn't request it"],["si","Sí, lo pidió y se lo concedieron","Yes, requested and granted"],["ns","No sé","Not sure"]],"pickFactPermit",state.facts.natz25_permit)}`;
+      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_permit);
     } else if(f==="f_natz25_when"){
       html+=`<div class="q">${T("Esa naturalización en otro país, ¿ocurrió antes o después de que naciera su hijo/a por quien sigue tu línea?","That naturalization abroad — was it before or after the birth of the child through whom your line continues?")}</div>
         <div class="qhint">${T("Si el hijo/a ya había nacido, normalmente ya era alemán/a y no se ve afectado.","If the child was already born, they were usually already German and unaffected.")}</div>
@@ -602,6 +622,9 @@ function pickFact3(v){ state.facts.natz1914=v; render(); }
 function pickFactPers(v){ state.facts.persecution=v; render(); }
 function pickPersType(v){ state.facts.persecution_type=v; render(); }
 function pickFact4(v){ state.facts.natz25=v; render(); }
+function pickFactEu(v){ state.facts.natz25_eu=v; render(); }
+function pickFactYear(v){ state.facts.natz25_year=v; render(); }
+function pickFactPermit(v){ state.facts.natz25_permit=v; render(); }
 function pickFactWhen(v){ state.facts.natz25_when=v; render(); }
 function pickFactAd(v){ state.facts.adoption=v; render(); }
 function pickFactAdage(v){ state.facts.adoption_age=v; render(); }
@@ -625,7 +648,7 @@ function advance(){
     render(); return;
   }
   if(s==="facts"){ const f=curFact();
-    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_relative:"relative",f_lives:"lives"};
+    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_eu:"natz25_eu",f_natz25_year:"natz25_year",f_natz25_permit:"natz25_permit",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_relative:"relative",f_lives:"lives"};
     if(okMap[f] && !state.facts[okMap[f]]) return; nextFact(); return;
   }
   if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; savePartial(); go("build_rel"); return; }
