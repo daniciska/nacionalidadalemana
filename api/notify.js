@@ -57,6 +57,8 @@ module.exports = async (req, res) => {
   const verdict = Array.isArray(rec.verdict) ? rec.verdict : [];
   const investigate = Array.isArray(ans.investigate) ? ans.investigate : [];
   const markA = (verdict.find(v => v.via === "A") || {}).mark || null;
+  let recibido = "";
+  try { if (rec.created_at) recibido = new Date(rec.created_at).toLocaleString("es-CL", { timeZone: "America/Santiago", dateStyle: "short", timeStyle: "short" }); } catch (e) {}
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
   const OWNER_EMAIL = process.env.OWNER_EMAIL;
@@ -106,6 +108,7 @@ module.exports = async (req, res) => {
         <tr><td style="padding:3px 14px 3px 0;color:#64748b">Nombre</td><td><b>${esc(name)}</b></td></tr>
         <tr><td style="padding:3px 14px 3px 0;color:#64748b">Email</td><td><a href="mailto:${esc(email)}">${esc(email)}</a></td></tr>
         <tr><td style="padding:3px 14px 3px 0;color:#64748b">Teléfono</td><td>${esc(phone)}</td></tr>
+        ${recibido ? `<tr><td style="padding:3px 14px 3px 0;color:#64748b">Recibido</td><td>${esc(recibido)} <span style="color:#94a3b8">(hora de Chile)</span></td></tr>` : ""}
       </table>
 
       <h3 style="font-size:14px;margin:0 0 8px">Árbol familiar</h3>

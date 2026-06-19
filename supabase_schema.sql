@@ -55,7 +55,9 @@ order by created_at desc;
 -- Vista de SEGUIMIENTO: muestra los completados + los abandonos reales
 -- (parciales cuyo visitante nunca terminó), sin duplicados.
 create or replace view public.leads_seguimiento as
-select l.*
+select
+  l.*,
+  to_char(l.created_at at time zone 'America/Santiago', 'DD-MM-YYYY HH24:MI') as fecha_chile
 from public.leads l
 where l.status = 'completo'
    or (l.status = 'parcial'

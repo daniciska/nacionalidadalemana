@@ -70,6 +70,7 @@
 <script>
 const API="/api/leads";
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtCL(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleString("es-CL",{timeZone:"America/Santiago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}); }catch(e){ return String(iso).slice(0,16); } }
 let PW=sessionStorage.getItem("panel_pw")||"";
 let LEADS=[], VIEW="seguimiento", FILTER="todos", Q="";
 
@@ -134,7 +135,7 @@ function card(l){
   const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
   const badges=v.slice().sort((a,b)=>(order[a.state]??9)-(order[b.state]??9))
     .map(x=>{const s=ST[x.state]||["x",x.state];return `<span class="badge b-${s[0]}">${esc(s[1])}</span>`;}).join("")||`<span class="badge b-x">sin veredicto</span>`;
-  const when=(l.created_at||"").replace("T"," ").slice(0,16);
+  const when=fmtCL(l.created_at);
   const stClass=l.status==="parcial"?"st-parcial":"st-completo";
   const stTxt=l.status==="parcial"?"Incompleto":"Completo";
   const wa=(l.phone||"").replace(/[^\d]/g,"");
@@ -178,7 +179,7 @@ function detail(id){
   const m=document.createElement("div"); m.className="modal"; m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div class="sheet">
     <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(l.name||"(sin nombre)")}</h2><button class="btn" onclick="this.closest('.modal').remove()">✕</button></div>
-    <p class="muted" style="font-size:13px;margin:4px 0 0">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc((l.created_at||"").replace("T"," ").slice(0,16))}</p>
+    <p class="muted" style="font-size:13px;margin:4px 0 0">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc(fmtCL(l.created_at))} (hora Chile)</p>
     <h3>Árbol familiar</h3><div class="tree2">${tree}</div>
     <h3>Vías evaluadas</h3>${vias||'<div class="muted" style="font-size:13px">Sin vías.</div>'}
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
