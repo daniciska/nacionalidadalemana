@@ -584,6 +584,28 @@ function familyTree(mark){
 }
 function renderTreeSoFar(){ return familyTree(null); }
 
+// Borrador de consulta al Consulado/Embajada de Alemania (para la asesora; en español)
+function buildConsularDraft(vias){
+  const A=state, ap=A.applicant||{}, G=germanAncestor();
+  const emigTxt={pre1904:"antes de ~1904",1904_1913:"entre 1904 y 1913",1914_1932:"entre 1914 y 1932",nazi_era:"entre 1933 y 1945",post1945:"después de 1945",no_emig:"no emigró de Alemania",ns:"en una fecha por confirmar"}[A.facts.emigYear]||"en una fecha por confirmar";
+  const rows=[ap,...A.chain];
+  const linea=rows.map(p=>`${p.name||"(sin nombre)"}${p.birthYear?` (n. ${p.birthYear}${p.country?", "+p.country:""})`:(p.country?` (${p.country})`:"")}`).join("  ←  hijo/a de  ");
+  const ok=k=>vias.some(v=>v.k===k && (v.state==="VIABLE"||v.state==="DUDOSO"));
+  let pregunta;
+  if(ok("B")) pregunta="si tendría derecho a recuperar la nacionalidad alemana por restitución (Art. 116(2) de la Ley Fundamental o §15 de la Ley de Nacionalidad), dado que mi antepasado fue perseguido por el régimen nazi";
+  else if(ok("C")) pregunta="si podría adquirir la nacionalidad alemana mediante la declaración del §5 de la Ley de Nacionalidad (corrección de la discriminación histórica en la transmisión)";
+  else if(ok("A")) pregunta="si podría determinarse mi nacionalidad alemana por descendencia (§4 de la Ley de Nacionalidad) a través de mi antepasado alemán";
+  else pregunta="si tengo algún derecho a la nacionalidad alemana a través de mi línea de ascendencia, y qué requisitos o documentos serían necesarios";
+  const esAlemania=G&&/alemania|germany|deutschland/i.test(G.country||"");
+  return `Asunto: Consulta sobre posible nacionalidad alemana por ascendencia\n\n`+
+    `Estimados señores del Consulado/Embajada de Alemania:\n\n`+
+    `Mi nombre es ${ap.name||"[nombre]"}, nacido/a en ${ap.country||"[país]"}${ap.birthYear?" en "+ap.birthYear:""}. Quisiera consultar ${pregunta}.\n\n`+
+    `Mi línea de ascendencia es la siguiente:\n${linea}.\n\n`+
+    `Mi antepasado alemán, ${G?G.name:"[nombre]"}, ${esAlemania?"nació en Alemania":"era de origen alemán"}${G&&G.birthYear?" en "+G.birthYear:""} y ${emigTxt==="no emigró de Alemania"?"no emigró de Alemania":"emigró de Alemania "+emigTxt}.\n\n`+
+    `Agradecería que me indicaran si mi caso podría calificar y, en tal caso, cómo iniciar el procedimiento de determinación de la nacionalidad alemana (Feststellung der deutschen Staatsangehörigkeit) y qué documentos debo presentar.\n\n`+
+    `Quedo atento/a a su respuesta. Muchas gracias.\n\nAtentamente,\n${ap.name||"[nombre]"}\n[correo / teléfono]`;
+}
+
 function renderResult(){
   const {vias,investigate}=analyze();
   const infoGaps=vias.filter(v=>v.state==="INFO").flatMap(v=>v.gaps||[]);
@@ -709,6 +731,7 @@ function contactOk(){ const c=state.contact;
 async function pushLead(status, vias, checklist){
   const created=new Date().toISOString();
   const answers={applicant:state.applicant, chain:state.chain, facts:state.facts, investigate:checklist||[], consent:state.contact.consent===true, consent_at:created};
+  if(status==="completo") answers.consular_draft=buildConsularDraft(vias||[]);
   const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null,legal:v.legal||null}));
   const body={session_id:state.sessionId, status, lang:LANG,
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null,
