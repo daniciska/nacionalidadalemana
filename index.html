@@ -272,7 +272,7 @@ function analyze(){
       }[lossInfo.reason]||"") : "";
       const stag5 = breakInfo.year>=1949
         ? ` Vía correctiva: derecho de declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031), extensible a descendientes. Documentos: partida de ${breakInfo.person} y prueba de la nacionalidad alemana de la madre (${breakInfo.parent}).`
-        : ` El nacimiento de ${breakInfo.person} antes del 23.5.1949 excluye el §5 StAG (esa declaración cubre discriminaciones ocurridas bajo la Ley Fundamental, en vigor desde esa fecha).`;
+        : ` Vía correctiva de este tipo de discriminación de género: declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031). Sin embargo, no aplica en este caso: ${breakInfo.person} nació antes del 23.5.1949 (entrada en vigor de la Ley Fundamental) y la declaración solo alcanza a quienes habrían adquirido la nacionalidad bajo ese marco constitucional.`;
       legalA = lossPrefix + `Corte de transmisión por género en ${breakInfo.person} (n. ${breakInfo.year||"?"}): hijo/a matrimonial de madre alemana antes del 1.1.1975 — bajo el RuStAG vigente la línea materna no confería la nacionalidad (transmitía el padre).` + stag5;
     }
     else if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated)
