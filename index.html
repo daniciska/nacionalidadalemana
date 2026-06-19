@@ -214,7 +214,7 @@ function analyze(){
     else if(A.facts.natz25_when==="ns"){ gaps.push(T("determinar la fecha exacta de la naturalización (si fue antes o después del nacimiento del hijo/a, define si hubo pérdida)","determine the exact naturalization date (whether before or after the child's birth determines if citizenship was lost)")); }
     else lossInfo=lossInfo||{person:(A.applicant.name||T("el solicitante","the applicant")), reason:"stag25"};
   }
-  if(A.facts.persecution==="si" && ["d116","d15"].includes(A.facts.persecution_type) && !preNazi) lossInfo=lossInfo||{person:(G?G.name:T("tu antepasado","your ancestor")), reason:"deprivation"};
+  if(A.facts.persecution==="si" && !preNazi) lossInfo=lossInfo||{person:(G?G.name:T("tu antepasado","your ancestor")), reason:"deprivation"};
   if(A.facts.marriageloss==="si") lossInfo=lossInfo||{person:T("una mujer de tu línea","a woman in your line"), reason:"marriage"};
   if(!germanAncestorReached()) gaps.push(T("la línea no llega aún a una persona nacida en Alemania","the line doesn't yet reach a person born in Germany"));
   if(G && G.name && !yr(G)) gaps.push(T(`falta o es incierto el año de nacimiento de ${G.name} (tu antepasado alemán)`,`${G.name}'s birth year (your German ancestor) is missing or uncertain`));
@@ -253,7 +253,7 @@ function analyze(){
     vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent"), state:st, msg, gaps, mark});
   }
   // ----- VIA C: declaración §5 (cubre madre alemana 1949–1974 Y padre alemán no matrimonial 1949–1993) -----
-  const deprivation = A.facts.persecution==="si" && ["d116","d15"].includes(A.facts.persecution_type) && !preNazi;
+  const deprivation = A.facts.persecution==="si" && !preNazi;
   if(breakInfo && (breakInfo.reason==="genero"||breakInfo.reason==="paternidad") && breakInfo.year>=1949 && !deprivation && A.facts.marriageloss!=="si" && !breakInfo.legitimated){
     const msg = breakInfo.reason==="genero"
       ? T(`Como la línea se cortó por venir de una mujer (${breakInfo.parent}), podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
@@ -269,16 +269,15 @@ function analyze(){
   }
   // ----- VIA B: restitución nazi (SOLO si hay un "sí" afirmativo; "no sé" no crea vía) -----
   if(A.facts.persecution==="si"){
-    const dep=A.facts.persecution_type;
     let st, msg;
     if(preNazi){
       st="DUDOSO";
       msg=T(`${G?G.name:"Tu antepasado"} emigró antes del régimen nazi (1933), así que la persecución nazi normalmente no sería la vía — salvo que se le privara de la nacionalidad estando ya en el extranjero (p. ej. el decreto de 1941 contra judíos emigrados). Conviene confirmarlo con un especialista.`,
             `${G?G.name:"Your ancestor"} emigrated before the Nazi regime (1933), so Nazi persecution would normally not be the route — unless they were stripped of citizenship while already abroad (e.g. the 1941 decree against emigrated Jews). Best confirmed with a specialist.`);
     } else {
-      st = ["d116","d15"].includes(dep)?"VIABLE":(dep==="no"?"POCO":"DUDOSO");
-      msg=T(`Como indicaste persecución nazi sobre ${G?G.name:"tu antepasado"} o su familia, podrías recuperar la nacionalidad sin renunciar a la tuya. Hay que confirmar cómo afectó exactamente a su nacionalidad.`,
-            `Since you indicated Nazi persecution of ${G?G.name:"your ancestor"} or their family, you may reclaim citizenship without renouncing your own. The exact effect on their nationality must be confirmed.`);
+      st="VIABLE";
+      msg=T(`Como ${G?G.name:"tu antepasado"} o su familia perdieron la nacionalidad alemana por la persecución nazi, tú y tus descendientes podrían recuperarla por restitución, sin renunciar a tu nacionalidad actual.`,
+            `Since ${G?G.name:"your ancestor"} or their family lost German citizenship due to Nazi persecution, you and your descendants may reclaim it via restitution, without giving up your current nationality.`);
     }
     vias.push({k:"B", name:T("Restitución por persecución nazi (Art. 116(2)/§15)","Nazi-persecution restitution (Art. 116(2)/§15)"), state:st, msg, gaps:[]});
   }
@@ -433,14 +432,9 @@ function render(){
         ${chips("",[["usa","Sí, en EE. UU.","Yes, in the USA"],["otro","Sí, en otro país","Yes, in another country"],["no","No","No"],["ns","No sé","Not sure"]],"pickFact3",state.facts.natz1914)}`;
       html+=navBtns(T("Siguiente","Next"),!!state.facts.natz1914);
     } else if(f==="f_persecution"){
-      html+=`<div class="q">${T(`¿${esc(G?G.name:"tu antepasado alemán")} o su familia fueron perseguidos por el régimen nazi (1933–1945)?`,`Were ${esc(G?G.name:"your German ancestor")} or their family persecuted by the Nazi regime (1933–1945)?`)}</div>
+      html+=`<div class="q">${T(`¿${esc(G?G.name:"tu antepasado alemán")} o su familia fueron perseguidos por el régimen nazi (1933–1945) y, por esa razón, perdieron la nacionalidad alemana o no pudieron obtenerla?`,`Were ${esc(G?G.name:"your German ancestor")} or their family persecuted by the Nazi regime (1933–1945) and, for that reason, lost German citizenship or could not obtain it?`)}</div>
+        <div class="qhint">${T("Incluye, por ejemplo, a familias judías que huyeron de Alemania o a quienes el régimen les retiró la nacionalidad.","Includes, for example, Jewish families who fled Germany, or whose citizenship was withdrawn by the regime.")}</div>
         ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactPers",state.facts.persecution)}`;
-      if(state.facts.persecution==="si"||state.facts.persecution==="ns"){
-        html+=`<div style="margin-top:6px">`+chips(T("¿Cómo afectó a su nacionalidad?","How did it affect their citizenship?"),
-          [["d116","Tenía la nacionalidad alemana y la perdió por una medida del régimen nazi","Held German citizenship and lost it through a Nazi-regime measure"],
-           ["d15","La perdió o nunca pudo adquirirla a causa de la persecución","Lost it or never could acquire it due to the persecution"],
-           ["no","Ninguna de esas","Neither"],["ns","No sé","Not sure"]],"pickPersType",state.facts.persecution_type)+`</div>`;
-      }
       html+=navBtns(T("Siguiente","Next"),!!state.facts.persecution);
     } else if(f==="f_natz25"){
       html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} o alguien de tu línea familiar se hizo ciudadano de otro país (se naturalizó) en algún momento?`,`Did ${esc(state.applicant.name||"you")} or someone in your family line become a citizen of another country (naturalize) at some point?`)}</div>
