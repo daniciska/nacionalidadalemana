@@ -223,6 +223,15 @@ function analyze(){
 
   if(A.chain.length){
     let st, msg;
+    // Mapa de mensajes de pérdida reutilizable en ambas ramas (sola o combinada con breakInfo)
+    const lossR=lossInfo?{
+      matrikel:T(`${lossInfo.person} habría perdido la nacionalidad: vivió 10+ años fuera de Alemania antes de 1914 sin inscripción consular.`,`${lossInfo.person} would have lost citizenship: lived 10+ years abroad before 1914 without consular registration.`),
+      matrikel_posible:T(`${lossInfo.person} pudo haber perdido la nacionalidad por la regla de los 10 años, pero falta confirmar el año exacto de emigración y la inscripción consular (verificable en invenio).`,`${lossInfo.person} may have lost citizenship under the 10-year rule, but the exact emigration year and consular registration need confirming (checkable in invenio).`),
+      natz1914:T(`${lossInfo.person} se naturalizó en el extranjero antes de 1914, lo que causaba la pérdida.`,`${lossInfo.person} naturalized abroad before 1914, which caused loss.`),
+      stag25:T(`${lossInfo.person} adquirió otra nacionalidad por solicitud propia, lo que causaba la pérdida de la alemana.`,`${lossInfo.person} acquired another nationality by application, which caused loss of the German one.`),
+      deprivation:T(`A ${lossInfo.person} le retiraron la nacionalidad alemana durante el nazismo, por lo que la herencia normal de la nacionalidad está interrumpida. Tu vía correcta es la restitución (más abajo), no la ascendencia ordinaria.`,`${lossInfo.person} was stripped of German citizenship under Nazism, so the ordinary inheritance of citizenship is broken. Your correct route is restitution (below), not ordinary descent.`),
+      marriage:T(`La nacionalidad pudo perderse cuando una mujer de tu línea se casó con un extranjero antes de 1953. La herencia normal se interrumpe ahí, pero esta discriminación histórica suele poder revertirse (ver vía de declaración).`,`Citizenship may have been lost when a woman in your line married a foreigner before 1953. The ordinary inheritance breaks there, but this historical discrimination can often be reversed (see declaration route).`)
+    }:null;
     if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated){
       st="DUDOSO";
       msg=T(`${breakInfo.person} nació fuera del matrimonio, pero sus padres se casaron después (legitimación). Bajo la ley antigua eso podía conferir la nacionalidad — requiere revisión profesional.`,`${breakInfo.person} was born out of wedlock, but the parents married afterwards (legitimation). Under the old law this could confer citizenship — needs professional review.`);
@@ -233,15 +242,13 @@ function analyze(){
             `The line breaks at ${breakInfo.person} (born ${breakInfo.year}): inheriting from the mother ${breakInfo.parent}, and before 1975 the maternal line did not transmit automatically.`)
         : T(`La línea se interrumpe en ${breakInfo.person}: nacido/a fuera del matrimonio de padre alemán antes de 1993.`,
             `The line breaks at ${breakInfo.person}: born out of wedlock to a German father before 1993.`);
+      // Si además el antepasado alemán tiene pérdida propia (ej. sin Matrikel), se muestran ambos obstáculos
+      if(lossInfo && lossR && lossR[lossInfo.reason]){
+        const lm=lossR[lossInfo.reason]; msg += " " + T("Adicionalmente,","Additionally,") + " " + lm[0].toLowerCase() + lm.slice(1);
+      }
     } else if(lossInfo){
       st = lossInfo.reason==="matrikel_posible" ? "DUDOSO" : "POCO";
-      const r={matrikel:T(`${lossInfo.person} habría perdido la nacionalidad: vivió 10+ años fuera de Alemania antes de 1914 sin inscripción consular.`,`${lossInfo.person} would have lost citizenship: lived 10+ years abroad before 1914 without consular registration.`),
-               matrikel_posible:T(`${lossInfo.person} pudo haber perdido la nacionalidad por la regla de los 10 años, pero falta confirmar el año exacto de emigración y la inscripción consular (verificable en invenio).`,`${lossInfo.person} may have lost citizenship under the 10-year rule, but the exact emigration year and consular registration need confirming (checkable in invenio).`),
-               natz1914:T(`${lossInfo.person} se naturalizó en el extranjero antes de 1914, lo que causaba la pérdida.`,`${lossInfo.person} naturalized abroad before 1914, which caused loss.`),
-               stag25:T(`${lossInfo.person} adquirió otra nacionalidad por solicitud propia, lo que causaba la pérdida de la alemana.`,`${lossInfo.person} acquired another nationality by application, which caused loss of the German one.`),
-               deprivation:T(`A ${lossInfo.person} le retiraron la nacionalidad alemana durante el nazismo, por lo que la herencia normal de la nacionalidad está interrumpida. Tu vía correcta es la restitución (más abajo), no la ascendencia ordinaria.`,`${lossInfo.person} was stripped of German citizenship under Nazism, so the ordinary inheritance of citizenship is broken. Your correct route is restitution (below), not ordinary descent.`),
-               marriage:T(`La nacionalidad pudo perderse cuando una mujer de tu línea se casó con un extranjero antes de 1953. La herencia normal se interrumpe ahí, pero esta discriminación histórica suele poder revertirse (ver vía de declaración).`,`Citizenship may have been lost when a woman in your line married a foreigner before 1953. The ordinary inheritance breaks there, but this historical discrimination can often be reversed (see declaration route).`)};
-      msg=r[lossInfo.reason];
+      msg=lossR[lossInfo.reason];
     } else if(gaps.length){ st="INFO"; msg=T("Falta confirmar algunos datos para evaluar la línea.","Some data is missing to assess the line."); }
     else { st="VIABLE"; msg=T(`La línea desde ${G?G.name:"tu antepasado alemán"} hasta ${A.applicant.name||"ti"} parece mantenerse. Habrá que respaldarla con documentos.`,`The line from ${G?G.name:"your German ancestor"} to ${A.applicant.name||"you"} appears intact. It must be backed with documents.`); }
     if(A.facts.adoption==="si"){
@@ -254,8 +261,20 @@ function analyze(){
     else if(lossInfo) mark={person:lossInfo.person, type:"loss"};
     // Razonamiento jurídico (informe interno para la asesora; siempre en español)
     let legalA;
-    if(breakInfo && breakInfo.reason==="genero")
-      legalA=`Corte de transmisión por género en ${breakInfo.person} (n. ${breakInfo.year||"?"}): hijo/a matrimonial de madre alemana antes del 1.1.1975 — bajo el RuStAG vigente la línea materna no confería la nacionalidad (transmitía el padre). Vía correctiva: derecho de declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031), extensible a descendientes. Documentos: partida de ${breakInfo.person} y prueba de la nacionalidad alemana de la madre (${breakInfo.parent}).`;
+    if(breakInfo && breakInfo.reason==="genero"){
+      const lossPrefix = lossInfo ? ({
+        matrikel:`Pérdida ex §21 de la Ley 1870 (${lossInfo.person}): ausencia de Matrikel — verificar en invenio (grupo AB 2). `,
+        matrikel_posible:`Posible pérdida ex §21 — verificar Matrikel de ${lossInfo.person} en invenio. `,
+        natz1914:`Pérdida por naturalización pre-1914 (${lossInfo.person}). `,
+        stag25:`Pérdida ex §25 (${lossInfo.person}). `,
+        deprivation:`Privación nazi en ${lossInfo.person} — vía principal es restitución (B). `,
+        marriage:`Pérdida por matrimonio pre-1953 en la línea. `
+      }[lossInfo.reason]||"") : "";
+      const stag5 = breakInfo.year>=1949
+        ? ` Vía correctiva: derecho de declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031), extensible a descendientes. Documentos: partida de ${breakInfo.person} y prueba de la nacionalidad alemana de la madre (${breakInfo.parent}).`
+        : ` El nacimiento de ${breakInfo.person} antes del 23.5.1949 excluye el §5 StAG (esa declaración cubre discriminaciones ocurridas bajo la Ley Fundamental, en vigor desde esa fecha).`;
+      legalA = lossPrefix + `Corte de transmisión por género en ${breakInfo.person} (n. ${breakInfo.year||"?"}): hijo/a matrimonial de madre alemana antes del 1.1.1975 — bajo el RuStAG vigente la línea materna no confería la nacionalidad (transmitía el padre).` + stag5;
+    }
     else if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated)
       legalA=`Posible legitimación: ${breakInfo.person} (n. ${breakInfo.year||"?"}) nació fuera del matrimonio de padre alemán y los padres se casaron después. Bajo el §5 RuStAG antiguo la legitimación de un menor (antes del 1.7.1998) confería la nacionalidad. Revisar acta de matrimonio y de reconocimiento de paternidad.`;
     else if(breakInfo && breakInfo.reason==="paternidad")
