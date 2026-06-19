@@ -164,7 +164,7 @@ function detail(id){
     const p=row.p, isM=markA&&p.name&&p.name===markA.person, isDE=isGerman(p);
     const cls=isM?(markA.type==="legit"?"warn":"brk"):(isDE?"de":"");
     const gen=idx===0?"Tú":genLabel(idx,row.rel);
-    const meta=[p.birthYear,p.country].filter(Boolean).join(" · ");
+    const meta=[p.birthYear,p.country,p.marriageYear?`matr. ${p.marriageYear}`:null].filter(Boolean).join(" · ");
     let pill="";
     if(isM) pill=`<div style="margin-top:5px"><span class="badge b-${markA.type==="legit"?"a":"r"}">⚠ ${markA.type==="loss"?"posible pérdida":(markA.type==="legit"?"a revisar":"la línea se corta aquí")}</span></div>`;
     else if(isDE) pill=`<div style="margin-top:5px"><span class="badge b-g">🇩🇪 raíz alemana</span></div>`;

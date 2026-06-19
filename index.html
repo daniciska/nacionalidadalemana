@@ -112,6 +112,16 @@ let LANG="es";
 const T=(es,en,pt)=>LANG==="es"?es:LANG==="pt"?(pt!=null?pt:es):en;
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* Lista de países (todos excepto Alemania, que aparece primero en el select) */
+const PAISES_OTROS=["Afganistán","Albania","Andorra","Angola","Antigua y Barbuda","Arabia Saudita","Argelia","Argentina","Armenia","Australia","Austria","Azerbaiyán","Bahamas","Bangladés","Barbados","Baréin","Bélgica","Belice","Benín","Bielorrusia","Bolivia","Bosnia y Herzegovina","Botsuana","Brasil","Brunéi","Bulgaria","Burkina Faso","Burundi","Bután","Cabo Verde","Camboya","Camerún","Canadá","Catar","Chad","Chile","China","Chipre","Colombia","Comoras","Congo","Corea del Norte","Corea del Sur","Costa Rica","Costa de Marfil","Croacia","Cuba","Dinamarca","Dominica","Ecuador","Egipto","El Salvador","Emiratos Árabes Unidos","Eritrea","Eslovaquia","Eslovenia","España","Estados Unidos","Estonia","Etiopía","Fiyi","Filipinas","Finlandia","Francia","Gabón","Gambia","Georgia","Ghana","Granada","Grecia","Guatemala","Guinea","Guinea-Bisáu","Guinea Ecuatorial","Guyana","Haití","Honduras","Hungría","India","Indonesia","Irak","Irán","Irlanda","Islandia","Islas Marshall","Islas Salomón","Israel","Italia","Jamaica","Japón","Jordania","Kazajistán","Kenia","Kirguistán","Kiribati","Kuwait","Laos","Lesoto","Letonia","Líbano","Liberia","Libia","Liechtenstein","Lituania","Luxemburgo","Madagascar","Malasia","Malaui","Maldivas","Malí","Malta","Marruecos","Mauricio","Mauritania","México","Micronesia","Moldavia","Mónaco","Mongolia","Montenegro","Mozambique","Namibia","Nauru","Nepal","Nicaragua","Níger","Nigeria","Noruega","Nueva Zelanda","Omán","Países Bajos","Pakistán","Palaos","Palestina","Panamá","Papúa Nueva Guinea","Paraguay","Perú","Polonia","Portugal","Reino Unido","República Centroafricana","República Checa","República Democrática del Congo","República Dominicana","Ruanda","Rumania","Rusia","Samoa","San Cristóbal y Nieves","San Marino","San Vicente y las Granadinas","Santa Lucía","Santo Tomé y Príncipe","Senegal","Serbia","Seychelles","Sierra Leona","Singapur","Siria","Somalia","Sri Lanka","Sudáfrica","Sudán","Sudán del Sur","Suecia","Suiza","Surinam","Tailandia","Tanzania","Tayikistán","Timor Oriental","Togo","Tonga","Trinidad y Tobago","Túnez","Turkmenistán","Turquía","Tuvalu","Ucrania","Uganda","Uruguay","Uzbekistán","Vanuatu","Venezuela","Vietnam","Yemen","Yibuti","Zambia","Zimbabue"];
+function ctryOpts(val){
+  const isDE=val==="Alemania";
+  return `<option value="">— ${T("Seleccionar país","Select country","Selecionar país")} —</option>`+
+    `<option value="Alemania"${isDE?" selected":""}>Alemania</option>`+
+    `<option disabled>──────────</option>`+
+    PAISES_OTROS.map(p=>`<option value="${esc(p)}"${val===p?" selected":""}>${esc(p)}</option>`).join("");
+}
+
 /* ---------------- estado ---------------- */
 const blank=()=>({
   applicant:{name:"",birthYear:"",country:""},
@@ -196,7 +206,11 @@ function analyze(){
       if(wed==="no" && cy<1993){
         const legit = my && my>=cy && my<=cy+18 && my<1998;   // legitimación por matrimonio posterior (siendo menor, antes de 1998)
         breakInfo={person:child.name, parent:parent.name, year:cy, reason:"paternidad", legitimated:!!legit}; break;
+      } else if(wed==="no" && cy===1993){
+        // El corte legal es el 1.7.1993 — con solo el año no se puede determinar si aplica la exclusión
+        gaps.push(T(`Confirmar la fecha exacta de nacimiento de ${child.name||"esta persona"}: el corte legal para hijos no matrimoniales de padre alemán es el 1 de julio de 1993. Si nació antes de esa fecha, la transmisión directa (§4) no aplica y corresponde evaluar la vía §5.`,`Confirm ${child.name||"this person"}'s exact birth date: the legal cutoff for non-marital children of a German father is July 1, 1993. If born before that date, direct transmission (§4) does not apply and the §5 route must be assessed.`,`Confirmar a data exata de nascimento de ${child.name||"esta pessoa"}: o corte legal para filhos não matrimoniais de pai alemão é 1 de julho de 1993. Se nascido antes dessa data, a transmissão direta (§4) não se aplica e deve-se avaliar a via §5.`));
       } else if(wed==="ns" && cy<1993){ maritalUnknown.push(child.name||T("un familiar","a relative","um familiar")); }
+      else if(wed==="ns" && cy===1993){ gaps.push(T(`Confirmar estado civil al nacer y fecha exacta de ${child.name||"esta persona"}: el corte para hijos no matrimoniales de padre alemán es el 1 de julio de 1993.`,`Confirm marital status at birth and exact date for ${child.name||"this person"}: the cutoff for non-marital children of a German father is July 1, 1993.`,`Confirmar o estado civil ao nascer e data exata de ${child.name||"esta pessoa"}: o corte para filhos não matrimoniais de pai alemão é 1 de julho de 1993.`)); }
     }
   }
   if(!breakInfo) maritalUnknown.forEach(n=> gaps.push(T(`confirmar si ${n} nació dentro o fuera del matrimonio (define si la línea se transmite)`,`confirm whether ${n} was born in or out of wedlock (it determines whether the line transmits)`,`confirmar se ${n} nasceu dentro ou fora do casamento (define se a linha se transmite)`)));
@@ -286,9 +300,11 @@ function analyze(){
         deprivation:`Privación nazi en ${lossInfo.person} — vía principal es restitución (B). `,
         marriage:`Pérdida por matrimonio pre-1953 en la línea. `
       }[lossInfo.reason]||"") : "";
-      const stag5 = breakInfo.year>=1949
+      const stag5 = breakInfo.year>1949
         ? ` Vía correctiva: derecho de declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031), extensible a descendientes. Documentos: partida de ${breakInfo.person} y prueba de la nacionalidad alemana de la madre (${breakInfo.parent}).`
-        : ` Vía correctiva de este tipo de discriminación de género: declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031). Sin embargo, no aplica en este caso: ${breakInfo.person} nació antes del 23.5.1949 (entrada en vigor de la Ley Fundamental) y la declaración solo alcanza a quienes habrían adquirido la nacionalidad bajo ese marco constitucional.`;
+        : breakInfo.year===1949
+          ? ` Vía correctiva condicionada a fecha exacta: si ${breakInfo.person} nació el 23.5.1949 o después (entrada en vigor de la Ley Fundamental), aplica la declaración del §5 StAG (plazo 19.8.2031). Si nació antes del 23.5.1949, no aplica. Confirmar fecha exacta de nacimiento.`
+          : ` Vía correctiva de este tipo de discriminación de género: declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031). Sin embargo, no aplica en este caso: ${breakInfo.person} nació antes del 23.5.1949 (entrada en vigor de la Ley Fundamental) y la declaración solo alcanza a quienes habrían adquirido la nacionalidad bajo ese marco constitucional.`;
       legalA = lossPrefix + `Corte de transmisión por género en ${breakInfo.person} (n. ${breakInfo.year||"?"}): hijo/a matrimonial de madre alemana antes del 1.1.1975 — bajo el RuStAG vigente la línea materna no confería la nacionalidad (transmitía el padre).` + stag5;
     }
     else if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated)
@@ -316,15 +332,20 @@ function analyze(){
   // ----- VIA C: declaración §5 (cubre madre alemana 1949–1974 Y padre alemán no matrimonial 1949–1993) -----
   const deprivation = A.facts.persecution==="si" && !preNazi;
   if(breakInfo && (breakInfo.reason==="genero"||breakInfo.reason==="paternidad") && breakInfo.year>=1949 && !deprivation && A.facts.marriageloss!=="si" && !breakInfo.legitimated){
-    const msg = breakInfo.reason==="genero"
-      ? T(`Como la línea se cortó por venir de una mujer (${breakInfo.parent}), podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
-          `Since the line broke because it came through a woman (${breakInfo.parent}), you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
-          `Como a linha foi interrompida por vir de uma mulher (${breakInfo.parent}), você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`)
-      : T(`Como ${breakInfo.person} nació fuera del matrimonio de un padre alemán (${breakInfo.parent}) antes de 1993, podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
-          `Since ${breakInfo.person} was born out of wedlock to a German father (${breakInfo.parent}) before 1993, you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
-          `Como ${breakInfo.person} nasceu fora do casamento de um pai alemão (${breakInfo.parent}) antes de 1993, você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`);
-    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)","Declaração por discriminação histórica (§5)"), state:"VIABLE", msg, gaps:[],
-      legal:`Declaración del §5 StAG (en vigor 20.8.2021, plazo hasta 19.8.2031) por discriminación histórica: ${breakInfo.reason==="genero"?"hijo/a matrimonial de madre alemana nacido 1949–1974":"hijo/a no matrimonial de padre alemán nacido 1949–1993"}. Adquisición por simple declaración ante el BVA, sin examen de idioma ni residencia, extensible a descendientes. Excepción excluyente: reconocimiento paterno entre 1.1.1970 y 31.8.1986.`});
+    const stateC = breakInfo.year===1949 ? "DUDOSO" : "VIABLE";
+    const msg = breakInfo.year===1949
+      ? T(`El §5 podría aplicar, pero depende de la fecha exacta de nacimiento de ${breakInfo.person}: solo quienes nacieron el 23 de mayo de 1949 o después (entrada en vigor de la Ley Fundamental) pueden acogerse. Confirmar la fecha exacta.`,
+          `§5 may apply, but depends on ${breakInfo.person}'s exact birth date: only those born on May 23, 1949 or later (when the Basic Law took effect) can use it. Confirm the exact date.`,
+          `O §5 pode se aplicar, mas depende da data exata de nascimento de ${breakInfo.person}: apenas quem nasceu em 23 de maio de 1949 ou depois (entrada em vigor da Lei Fundamental) pode se beneficiar. Confirmar a data exata.`)
+      : breakInfo.reason==="genero"
+        ? T(`Como la línea se cortó por venir de una mujer (${breakInfo.parent}), podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
+            `Since the line broke because it came through a woman (${breakInfo.parent}), you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
+            `Como a linha foi interrompida por vir de uma mulher (${breakInfo.parent}), você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`)
+        : T(`Como ${breakInfo.person} nació fuera del matrimonio de un padre alemán (${breakInfo.parent}) antes de 1993, podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
+            `Since ${breakInfo.person} was born out of wedlock to a German father (${breakInfo.parent}) before 1993, you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
+            `Como ${breakInfo.person} nasceu fora do casamento de um pai alemão (${breakInfo.parent}) antes de 1993, você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`);
+    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)","Declaração por discriminação histórica (§5)"), state:stateC, msg, gaps:[],
+      legal:`Declaración del §5 StAG (en vigor 20.8.2021, plazo hasta 19.8.2031) por discriminación histórica: ${breakInfo.reason==="genero"?"hijo/a matrimonial de madre alemana nacido 1949–1974":"hijo/a no matrimonial de padre alemán nacido 1949–1993"}. Adquisición por simple declaración ante el BVA, sin examen de idioma ni residencia, extensible a descendientes. Excepción excluyente: reconocimiento paterno entre 1.1.1970 y 31.8.1986.${breakInfo.year===1949?" ATENCIÓN: confirmar fecha exacta — si nació antes del 23.5.1949, la declaración no aplica.":""}`});
   }
   // ----- VIA C2: pérdida de nacionalidad por matrimonio (mujer alemana, antes de 1953) -----
   if(A.facts.marriageloss==="si" && !deprivation){
@@ -421,7 +442,7 @@ function render(){
       <div class="field"><label>${T("Tu nombre y apellido","Your full name","Seu nome e sobrenome")}</label><input id="i_name" value="${esc(a.name)}" oninput="state.applicant.name=this.value;chk()"></div>
       <div class="row">
         <div class="field"><label>${T("Año de nacimiento","Birth year","Ano de nascimento")}</label><input id="i_year" inputmode="numeric" value="${esc(a.birthYear)}" oninput="state.applicant.birthYear=this.value"></div>
-        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><input value="${esc(a.country)}" oninput="state.applicant.country=this.value"></div>
+        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><select onchange="state.applicant.country=this.value">${ctryOpts(a.country)}</select></div>
       </div>
       ${navBtns(T("Siguiente","Next","Avançar"),!!a.name)}`;
     return;
@@ -476,12 +497,12 @@ function render(){
       <div class="field"><label>${T("Nombre y apellido","Full name","Nome e sobrenome")}</label><input value="${esc(d.name)}" oninput="state.draft.name=this.value;chk()"></div>
       <div class="row">
         <div class="field"><label>${T("Año de nacimiento (aprox.)","Birth year (approx.)","Ano de nascimento (aprox.)")}</label><input inputmode="numeric" value="${esc(d.birthYear)}" oninput="state.draft.birthYear=this.value"></div>
-        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><input value="${esc(d.country)}" oninput="state.draft.country=this.value"></div>
+        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><select onchange="state.draft.country=this.value">${ctryOpts(d.country)}</select></div>
       </div>
       <div class="qhint">${T("Si nació en Alemania, ¡llegamos a tu raíz alemana!","If born in Germany, we've reached your German root!","Se nasceu na Alemanha, chegamos à sua raiz alemã!")}</div>
       ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`,`${esc(child.name||"Esta pessoa")} nasceu dentro do casamento dos seus pais?`),
         [["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickWed",d.childInWedlock)}
-      <div class="field" style="margin-top:12px"><label>${T("¿En qué año se casaron sus padres? (si lo sabes)","In what year did their parents marry? (if known)","Em que ano os pais se casaram? (se souber)")}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional","Opcional")}"></div>
+      <div class="field" style="margin-top:12px"><label>${T(`¿En qué año se casaron ${esc(state.draft.rel==="padre"?"el padre":"la madre")} y su pareja? (si lo sabes)`,`In what year did ${esc(state.draft.rel==="padre"?"the father":"the mother")} and their spouse marry? (if known)`,`Em que ano ${esc(state.draft.rel==="padre"?"o pai":"a mãe")} e seu cônjuge se casaram? (se souber)`)}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional","Opcional")}"></div>
       ${navBtns(T("Agregar y seguir","Add & continue","Adicionar e continuar"),!!(d.name&&d.childInWedlock))}`;
     return;
   }
@@ -630,7 +651,7 @@ function familyTree(mark){
     const isMark = mark && p.name && p.name===mark.person;
     const cls = isMark ? (mark.type==="legit"?"warn":"brk") : (isDE?"de":"");
     const gen = idx===0 ? T("Tú","You","Você") : genLabel(idx,row.rel);
-    const meta=[p.birthYear,p.country].filter(Boolean).join(" · ");
+    const meta=[p.birthYear,p.country,p.marriageYear?T(`matr. ${p.marriageYear}`,`m. ${p.marriageYear}`,`cas. ${p.marriageYear}`):null].filter(Boolean).join(" · ");
     let pill="";
     if(isMark){
       const txt = mark.type==="loss"?T("posible pérdida aquí","possible loss here","possível perda aqui"):(mark.type==="legit"?T("a revisar (legitimación)","review (legitimation)","a revisar (legitimação)"):T("la línea se corta aquí","line breaks here","a linha é interrompida aqui"));
