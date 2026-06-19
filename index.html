@@ -596,7 +596,7 @@ function renderResult(){
   const OV={
     VIABLE:["g","🟢",T("Altamente posible","Highly possible"),T("Según tus respuestas, tu caso tiene buenas bases para obtener la nacionalidad alemana. El siguiente paso es revisarlo en detalle y reunir la documentación.","Based on your answers, your case has solid grounds to obtain German citizenship. The next step is a detailed review and gathering the documents.")],
     DUDOSO:["a","🟡",T("Posible","Possible"),T("Tu caso es posible, pero hay puntos que conviene confirmar con una revisión profesional.","Your case is possible, but some points should be confirmed with a professional review.")],
-    POCO:["r","🔴",T("Poco posible","Unlikely"),T("Por ahora tu caso parece poco probable por la vía analizada. Aun así, vale la pena una segunda opinión profesional para revisar alternativas.","For now your case seems unlikely via the analyzed route. Still, a second professional opinion is worth it to check alternatives.")],
+    POCO:["r","🔴",T("Por ahora no calificas","Not eligible for now"),T("Según la normativa alemana vigente, por ahora tu caso no calificaría para obtener la nacionalidad por las vías que evaluamos.","Under current German law, your case would not qualify for citizenship through the routes we assessed for now.")],
     INFO:["b","🔵",T("Necesitamos más información","More information needed"),T("Para evaluarte mejor necesitamos algunos datos más. Reúne los antecedentes de abajo y podremos orientarte.","To assess you better we need a bit more data. Gather the items below and we'll be able to guide you.")]
   };
   const ov=OV[overall];
@@ -614,7 +614,10 @@ function renderResult(){
       <ul class="docs">`+checklist.map(x=>`<li>${esc(x)}</li>`).join("")+`</ul>`;
   }
   if(state.bothNoted) html+=`<div class="res b" style="margin-top:8px"><span class="badge">${T("Otra rama","Other branch")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una; puedes repetir el test para la otra.","You indicated German roots on both sides. This evaluated one; you can retake the test for the other.")}</p></div>`;
-  html+=`<p class="lead" style="margin-top:16px">${T("Te contactaremos con un análisis más detallado y los próximos pasos para tu caso.","We'll contact you with a more detailed analysis and the next steps for your case.")}</p>`;
+  const closing = overall==="POCO"
+    ? T("Guardamos tu contacto. Si la legislación alemana cambia y tu caso pasa a ser elegible, te avisaremos.","We'll keep your contact. If German law changes and your case becomes eligible, we'll let you know.")
+    : T("Te contactaremos con un análisis más detallado y los próximos pasos para tu caso.","We'll contact you with a more detailed analysis and the next steps for your case.");
+  html+=`<p class="lead" style="margin-top:16px">${closing}</p>`;
   html+=`<p class="savednote" id="saved"></p>`;
   document.getElementById("app").innerHTML=html; pushLead("completo", vias, checklist);
 }
