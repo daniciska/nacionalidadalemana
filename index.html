@@ -619,8 +619,9 @@ function renderResult(){
   document.getElementById("app").innerHTML=html; pushLead("completo", vias, checklist);
 }
 function renderTreeWithBreak(vias){
-  const A=vias.find(v=>v.k==="A");
-  return familyTree(A&&A.mark);
+  // El cliente ve su árbol SIN el punto de quiebre (la raíz alemana sí se marca).
+  // El quiebre/pérdida queda solo para la asesora (panel y email).
+  return familyTree(null);
 }
 
 /* ---------------- pickers / advance ---------------- */
