@@ -85,6 +85,7 @@
     <div class="lang">
       <button id="es" class="on" onclick="setLang('es')">ES</button>
       <button id="en" onclick="setLang('en')">EN</button>
+      <button id="pt" onclick="setLang('pt')">PT</button>
     </div>
   </header>
   <div class="card">
@@ -108,7 +109,7 @@ const CONFIG = {
 };
 
 let LANG="es";
-const T=(es,en)=>LANG==="es"?es:en;
+const T=(es,en,pt)=>LANG==="es"?es:LANG==="pt"?(pt!=null?pt:es):en;
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ---------------- estado ---------------- */
@@ -186,26 +187,26 @@ function analyze(){
     const cy=yr(child), rel=parent.rel; const my=parseInt(parent.marriageYear);
     let wed=parent.childInWedlock;
     if(wed==="ns" && my && cy){ wed = (my<=cy) ? "si" : "no"; }   // matrimonio antes del nacimiento = matrimonial
-    if(!cy){ gaps.push(T(`falta el año de nacimiento de ${child.name||"un familiar"}`,`missing birth year for ${child.name||"a relative"}`)); continue; }
+    if(!cy){ gaps.push(T(`falta el año de nacimiento de ${child.name||"un familiar"}`,`missing birth year for ${child.name||"a relative"}`,`falta o ano de nascimento de ${child.name||"um familiar"}`)); continue; }
     if(rel==="madre"){
       if(wed==="si" && cy<1975){
         breakInfo={person:child.name, parent:parent.name, year:cy, reason:"genero"}; break;
-      } else if(wed==="ns" && cy<1975){ maritalUnknown.push(child.name||T("un familiar","a relative")); }
+      } else if(wed==="ns" && cy<1975){ maritalUnknown.push(child.name||T("un familiar","a relative","um familiar")); }
     } else if(rel==="padre"){
       if(wed==="no" && cy<1993){
         const legit = my && my>=cy && my<=cy+18 && my<1998;   // legitimación por matrimonio posterior (siendo menor, antes de 1998)
         breakInfo={person:child.name, parent:parent.name, year:cy, reason:"paternidad", legitimated:!!legit}; break;
-      } else if(wed==="ns" && cy<1993){ maritalUnknown.push(child.name||T("un familiar","a relative")); }
+      } else if(wed==="ns" && cy<1993){ maritalUnknown.push(child.name||T("un familiar","a relative","um familiar")); }
     }
   }
-  if(!breakInfo) maritalUnknown.forEach(n=> gaps.push(T(`confirmar si ${n} nació dentro o fuera del matrimonio (define si la línea se transmite)`,`confirm whether ${n} was born in or out of wedlock (it determines whether the line transmits)`)));
+  if(!breakInfo) maritalUnknown.forEach(n=> gaps.push(T(`confirmar si ${n} nació dentro o fuera del matrimonio (define si la línea se transmite)`,`confirm whether ${n} was born in or out of wedlock (it determines whether the line transmits)`,`confirmar se ${n} nasceu dentro ou fora do casamento (define se a linha se transmite)`)));
   // pérdidas sobre el antepasado alemán
   const G=germanAncestor(); let lossInfo=null;
   if(G){
     // §21 (1871–1914): la pérdida por 10 años solo se consuma si emigró antes de ~1904 (completó 10 años antes de la abolición de 1914)
     if(A.facts.emigYear==="pre1904" && A.facts.matrikel==="no") lossInfo={person:G.name, reason:"matrikel"};
     else if(A.facts.emigYear==="ns" && A.facts.matrikel==="no") lossInfo={person:G.name, reason:"matrikel_posible"};
-    else if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && A.facts.matrikel==="ns") gaps.push(T(`verificar la inscripción consular (Matrikel) de ${G.name} en el archivo invenio`,`check ${G.name}'s consular registration (Matrikel) in the invenio archive`));
+    else if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && A.facts.matrikel==="ns") gaps.push(T(`verificar la inscripción consular (Matrikel) de ${G.name} en el archivo invenio`,`check ${G.name}'s consular registration (Matrikel) in the invenio archive`,`verificar a inscrição consular (Matrikel) de ${G.name} no arquivo invenio`));
     if(["usa","otro"].includes(A.facts.natz1914)) lossInfo=lossInfo||{person:G.name, reason:"natz1914"};
   }
   // §25: pérdida por naturalización a petición, no-UE, antes de 2024, sin permiso de conservación
@@ -213,49 +214,51 @@ function analyze(){
     || (A.facts.natz25==="si_apeticion" && A.facts.natz25_eu==="no" && A.facts.natz25_year==="antes" && (A.facts.natz25_permit==="no"||A.facts.natz25_permit==="ns"));
   if(natzLoss){
     if(A.facts.natz25_when==="despues"){ /* el hijo ya era alemán al naturalizarse el padre: sin pérdida */ }
-    else if(A.facts.natz25_when==="ns"){ gaps.push(T("determinar la fecha exacta de la naturalización (si fue antes o después del nacimiento del hijo/a, define si hubo pérdida)","determine the exact naturalization date (whether before or after the child's birth determines if citizenship was lost)")); }
-    else lossInfo=lossInfo||{person:(A.applicant.name||T("el solicitante","the applicant")), reason:"stag25"};
+    else if(A.facts.natz25_when==="ns"){ gaps.push(T("determinar la fecha exacta de la naturalización (si fue antes o después del nacimiento del hijo/a, define si hubo pérdida)","determine the exact naturalization date (whether before or after the child's birth determines if citizenship was lost)","determinar a data exata da naturalização (se foi antes ou depois do nascimento do filho/a, define se houve perda)")); }
+    else lossInfo=lossInfo||{person:(A.applicant.name||T("el solicitante","the applicant","o solicitante")), reason:"stag25"};
   }
-  if(A.facts.persecution==="si" && !preNazi) lossInfo=lossInfo||{person:(G?G.name:T("tu antepasado","your ancestor")), reason:"deprivation"};
-  if(A.facts.marriageloss==="si") lossInfo=lossInfo||{person:T("una mujer de tu línea","a woman in your line"), reason:"marriage"};
-  if(!germanAncestorReached()) gaps.push(T("la línea no llega aún a una persona nacida en Alemania","the line doesn't yet reach a person born in Germany"));
-  if(G && G.name && !yr(G)) gaps.push(T(`falta o es incierto el año de nacimiento de ${G.name} (tu antepasado alemán)`,`${G.name}'s birth year (your German ancestor) is missing or uncertain`));
+  if(A.facts.persecution==="si" && !preNazi) lossInfo=lossInfo||{person:(G?G.name:T("tu antepasado","your ancestor","seu antepassado")), reason:"deprivation"};
+  if(A.facts.marriageloss==="si") lossInfo=lossInfo||{person:T("una mujer de tu línea","a woman in your line","uma mulher da sua linha"), reason:"marriage"};
+  if(!germanAncestorReached()) gaps.push(T("la línea no llega aún a una persona nacida en Alemania","the line doesn't yet reach a person born in Germany","a linha ainda não chega a uma pessoa nascida na Alemanha"));
+  if(G && G.name && !yr(G)) gaps.push(T(`falta o es incierto el año de nacimiento de ${G.name} (tu antepasado alemán)`,`${G.name}'s birth year (your German ancestor) is missing or uncertain`,`falta ou é incerto o ano de nascimento de ${G.name} (seu antepassado alemão)`));
 
   if(A.chain.length){
     let st, msg;
     // Mapa de mensajes de pérdida reutilizable en ambas ramas (sola o combinada con breakInfo)
     const lossR=lossInfo?{
-      matrikel:T(`${lossInfo.person} habría perdido la nacionalidad: vivió 10+ años fuera de Alemania antes de 1914 sin inscripción consular.`,`${lossInfo.person} would have lost citizenship: lived 10+ years abroad before 1914 without consular registration.`),
-      matrikel_posible:T(`${lossInfo.person} pudo haber perdido la nacionalidad por la regla de los 10 años, pero falta confirmar el año exacto de emigración y la inscripción consular (verificable en invenio).`,`${lossInfo.person} may have lost citizenship under the 10-year rule, but the exact emigration year and consular registration need confirming (checkable in invenio).`),
-      natz1914:T(`${lossInfo.person} se naturalizó en el extranjero antes de 1914, lo que causaba la pérdida.`,`${lossInfo.person} naturalized abroad before 1914, which caused loss.`),
-      stag25:T(`${lossInfo.person} adquirió otra nacionalidad por solicitud propia, lo que causaba la pérdida de la alemana.`,`${lossInfo.person} acquired another nationality by application, which caused loss of the German one.`),
-      deprivation:T(`A ${lossInfo.person} le retiraron la nacionalidad alemana durante el nazismo, por lo que la herencia normal de la nacionalidad está interrumpida. Tu vía correcta es la restitución (más abajo), no la ascendencia ordinaria.`,`${lossInfo.person} was stripped of German citizenship under Nazism, so the ordinary inheritance of citizenship is broken. Your correct route is restitution (below), not ordinary descent.`),
-      marriage:T(`La nacionalidad pudo perderse cuando una mujer de tu línea se casó con un extranjero antes de 1953. La herencia normal se interrumpe ahí, pero esta discriminación histórica suele poder revertirse (ver vía de declaración).`,`Citizenship may have been lost when a woman in your line married a foreigner before 1953. The ordinary inheritance breaks there, but this historical discrimination can often be reversed (see declaration route).`)
+      matrikel:T(`${lossInfo.person} habría perdido la nacionalidad: vivió 10+ años fuera de Alemania antes de 1914 sin inscripción consular.`,`${lossInfo.person} would have lost citizenship: lived 10+ years abroad before 1914 without consular registration.`,`${lossInfo.person} teria perdido a nacionalidade: viveu 10+ anos fora da Alemanha antes de 1914 sem inscrição consular.`),
+      matrikel_posible:T(`${lossInfo.person} pudo haber perdido la nacionalidad por la regla de los 10 años, pero falta confirmar el año exacto de emigración y la inscripción consular (verificable en invenio).`,`${lossInfo.person} may have lost citizenship under the 10-year rule, but the exact emigration year and consular registration need confirming (checkable in invenio).`,`${lossInfo.person} pode ter perdido a nacionalidade pela regra dos 10 anos, mas falta confirmar o ano exato de emigração e a inscrição consular (verificável no invenio).`),
+      natz1914:T(`${lossInfo.person} se naturalizó en el extranjero antes de 1914, lo que causaba la pérdida.`,`${lossInfo.person} naturalized abroad before 1914, which caused loss.`,`${lossInfo.person} se naturalizou no exterior antes de 1914, o que causava a perda.`),
+      stag25:T(`${lossInfo.person} adquirió otra nacionalidad por solicitud propia, lo que causaba la pérdida de la alemana.`,`${lossInfo.person} acquired another nationality by application, which caused loss of the German one.`,`${lossInfo.person} adquiriu outra nacionalidade por solicitação própria, o que causava a perda da alemã.`),
+      deprivation:T(`A ${lossInfo.person} le retiraron la nacionalidad alemana durante el nazismo, por lo que la herencia normal de la nacionalidad está interrumpida. Tu vía correcta es la restitución (más abajo), no la ascendencia ordinaria.`,`${lossInfo.person} was stripped of German citizenship under Nazism, so the ordinary inheritance of citizenship is broken. Your correct route is restitution (below), not ordinary descent.`,`A ${lossInfo.person} foi retirada a nacionalidade alemã durante o nazismo, de modo que a herança normal da nacionalidade está interrompida. Sua via correta é a restituição (abaixo), não a ascendência ordinária.`),
+      marriage:T(`La nacionalidad pudo perderse cuando una mujer de tu línea se casó con un extranjero antes de 1953. La herencia normal se interrumpe ahí, pero esta discriminación histórica suele poder revertirse (ver vía de declaración).`,`Citizenship may have been lost when a woman in your line married a foreigner before 1953. The ordinary inheritance breaks there, but this historical discrimination can often be reversed (see declaration route).`,`A nacionalidade pode ter se perdido quando uma mulher da sua linha se casou com um estrangeiro antes de 1953. A herança normal se interrompe aí, mas essa discriminação histórica geralmente pode ser revertida (ver via de declaração).`)
     }:null;
     if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated){
       st="DUDOSO";
-      msg=T(`${breakInfo.person} nació fuera del matrimonio, pero sus padres se casaron después (legitimación). Bajo la ley antigua eso podía conferir la nacionalidad — requiere revisión profesional.`,`${breakInfo.person} was born out of wedlock, but the parents married afterwards (legitimation). Under the old law this could confer citizenship — needs professional review.`);
+      msg=T(`${breakInfo.person} nació fuera del matrimonio, pero sus padres se casaron después (legitimación). Bajo la ley antigua eso podía conferir la nacionalidad — requiere revisión profesional.`,`${breakInfo.person} was born out of wedlock, but the parents married afterwards (legitimation). Under the old law this could confer citizenship — needs professional review.`,`${breakInfo.person} nasceu fora do casamento, mas os pais se casaram depois (legitimação). Pela lei antiga isso podia conferir a nacionalidade — requer revisão profissional.`);
     } else if(breakInfo){
       st="POCO";
       msg = breakInfo.reason==="genero"
         ? T(`La línea se interrumpe en ${breakInfo.person} (nacido/a en ${breakInfo.year}): heredaba de su madre ${breakInfo.parent}, y antes de 1975 la línea materna no transmitía automáticamente.`,
-            `The line breaks at ${breakInfo.person} (born ${breakInfo.year}): inheriting from the mother ${breakInfo.parent}, and before 1975 the maternal line did not transmit automatically.`)
+            `The line breaks at ${breakInfo.person} (born ${breakInfo.year}): inheriting from the mother ${breakInfo.parent}, and before 1975 the maternal line did not transmit automatically.`,
+            `A linha é interrompida em ${breakInfo.person} (nascido/a em ${breakInfo.year}): herdava de sua mãe ${breakInfo.parent}, e antes de 1975 a linha materna não transmitia automaticamente.`)
         : T(`La línea se interrumpe en ${breakInfo.person}: nacido/a fuera del matrimonio de padre alemán antes de 1993.`,
-            `The line breaks at ${breakInfo.person}: born out of wedlock to a German father before 1993.`);
+            `The line breaks at ${breakInfo.person}: born out of wedlock to a German father before 1993.`,
+            `A linha é interrompida em ${breakInfo.person}: nascido/a fora do casamento de pai alemão antes de 1993.`);
       // Si además el antepasado alemán tiene pérdida propia (ej. sin Matrikel), se muestran ambos obstáculos
       if(lossInfo && lossR && lossR[lossInfo.reason]){
-        const lm=lossR[lossInfo.reason]; msg += " " + T("Adicionalmente,","Additionally,") + " " + lm[0].toLowerCase() + lm.slice(1);
+        const lm=lossR[lossInfo.reason]; msg += " " + T("Adicionalmente,","Additionally,","Adicionalmente,") + " " + lm[0].toLowerCase() + lm.slice(1);
       }
     } else if(lossInfo){
       st = lossInfo.reason==="matrikel_posible" ? "DUDOSO" : "POCO";
       msg=lossR[lossInfo.reason];
-    } else if(gaps.length){ st="INFO"; msg=T("Falta confirmar algunos datos para evaluar la línea.","Some data is missing to assess the line."); }
-    else { st="VIABLE"; msg=T(`La línea desde ${G?G.name:"tu antepasado alemán"} hasta ${A.applicant.name||"ti"} parece mantenerse. Habrá que respaldarla con documentos.`,`The line from ${G?G.name:"your German ancestor"} to ${A.applicant.name||"you"} appears intact. It must be backed with documents.`); }
+    } else if(gaps.length){ st="INFO"; msg=T("Falta confirmar algunos datos para evaluar la línea.","Some data is missing to assess the line.","Faltam confirmar alguns dados para avaliar a linha."); }
+    else { st="VIABLE"; msg=T(`La línea desde ${G?G.name:"tu antepasado alemán"} hasta ${A.applicant.name||"ti"} parece mantenerse. Habrá que respaldarla con documentos.`,`The line from ${G?G.name:"your German ancestor"} to ${A.applicant.name||"you"} appears intact. It must be backed with documents.`,`A linha de ${G?G.name:"seu antepassado alemão"} até ${A.applicant.name||"você"} parece se manter. Será necessário respaldá-la com documentos.`); }
     if(A.facts.adoption==="si"){
-      if(A.facts.adoption_age==="adulto"){ st="POCO"; msg=T(`La adopción de una persona adulta no transmite la nacionalidad alemana, por lo que la línea no continúa por esa vía.`,`Adoption of an adult does not transmit German citizenship, so the line does not continue through that route.`); }
-      else if(st==="VIABLE"){ st="DUDOSO"; msg=T(`Hay una adopción en la línea hacia ${A.applicant.name||"ti"}. La adopción transmite la nacionalidad solo si fue de un menor por un adoptante alemán (desde 1977), así que necesita revisión profesional.`,`There is an adoption in the line to ${A.applicant.name||"you"}. Adoption transmits citizenship only if it was of a minor by a German adopter (since 1977), so it needs professional review.`); }
+      if(A.facts.adoption_age==="adulto"){ st="POCO"; msg=T(`La adopción de una persona adulta no transmite la nacionalidad alemana, por lo que la línea no continúa por esa vía.`,`Adoption of an adult does not transmit German citizenship, so the line does not continue through that route.`,`A adoção de uma pessoa adulta não transmite a nacionalidade alemã, portanto a linha não continua por essa via.`); }
+      else if(st==="VIABLE"){ st="DUDOSO"; msg=T(`Hay una adopción en la línea hacia ${A.applicant.name||"ti"}. La adopción transmite la nacionalidad solo si fue de un menor por un adoptante alemán (desde 1977), así que necesita revisión profesional.`,`There is an adoption in the line to ${A.applicant.name||"you"}. Adoption transmits citizenship only if it was of a minor by a German adopter (since 1977), so it needs professional review.`,`Há uma adoção na linha até ${A.applicant.name||"você"}. A adoção transmite a nacionalidade apenas se foi de um menor por um adotante alemão (desde 1977), portanto requer revisão profissional.`); }
     }
-    if(A.facts.mil28==="si" && st==="VIABLE"){ st="DUDOSO"; msg=T(`Posible pérdida de la nacionalidad por servicio militar voluntario en un ejército extranjero (§28, desde el año 2000); requiere revisión profesional.`,`Possible loss of citizenship due to voluntary service in a foreign army (§28, since the year 2000); needs professional review.`); }
+    if(A.facts.mil28==="si" && st==="VIABLE"){ st="DUDOSO"; msg=T(`Posible pérdida de la nacionalidad por servicio militar voluntario en un ejército extranjero (§28, desde el año 2000); requiere revisión profesional.`,`Possible loss of citizenship due to voluntary service in a foreign army (§28, since the year 2000); needs professional review.`,`Possível perda da nacionalidade por serviço militar voluntário em um exército estrangeiro (§28, desde o ano 2000); requer revisão profissional.`); }
     let mark=null;
     if(breakInfo) mark={person:breakInfo.person, type:breakInfo.legitimated?"legit":"break"};
     else if(lossInfo) mark={person:lossInfo.person, type:"loss"};
@@ -295,23 +298,25 @@ function analyze(){
     if(A.facts.adoption==="si") legalA += A.facts.adoption_age==="adulto" ? " Adopción de adulto: no transmite (el §6 StAG solo confiere por adopción de menores, desde 1977)." : " Adopción en la línea: el §6 StAG confiere por adopción de menor por adoptante alemán (desde 1977); verificar edad y fecha.";
     if(A.facts.mil28==="si") legalA += " Posible pérdida por servicio militar voluntario en fuerzas armadas extranjeras (§28 StAG, desde 2000).";
     if(A.facts.relative==="si") legalA += " Antecedente relevante: un familiar ya obtuvo la nacionalidad por el mismo antepasado — solicitar copia de su Feststellung/Staatsangehörigkeitsausweis como precedente.";
-    vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent"), state:st, msg, gaps, mark, legal:legalA});
+    vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent","Nacionalidade por ascendência"), state:st, msg, gaps, mark, legal:legalA});
   }
   // ----- VIA C: declaración §5 (cubre madre alemana 1949–1974 Y padre alemán no matrimonial 1949–1993) -----
   const deprivation = A.facts.persecution==="si" && !preNazi;
   if(breakInfo && (breakInfo.reason==="genero"||breakInfo.reason==="paternidad") && breakInfo.year>=1949 && !deprivation && A.facts.marriageloss!=="si" && !breakInfo.legitimated){
     const msg = breakInfo.reason==="genero"
       ? T(`Como la línea se cortó por venir de una mujer (${breakInfo.parent}), podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
-          `Since the line broke because it came through a woman (${breakInfo.parent}), you may reclaim citizenship via a special declaration (§5), available until August 2031.`)
+          `Since the line broke because it came through a woman (${breakInfo.parent}), you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
+          `Como a linha foi interrompida por vir de uma mulher (${breakInfo.parent}), você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`)
       : T(`Como ${breakInfo.person} nació fuera del matrimonio de un padre alemán (${breakInfo.parent}) antes de 1993, podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
-          `Since ${breakInfo.person} was born out of wedlock to a German father (${breakInfo.parent}) before 1993, you may reclaim citizenship via a special declaration (§5), available until August 2031.`);
-    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)"), state:"VIABLE", msg, gaps:[],
+          `Since ${breakInfo.person} was born out of wedlock to a German father (${breakInfo.parent}) before 1993, you may reclaim citizenship via a special declaration (§5), available until August 2031.`,
+          `Como ${breakInfo.person} nasceu fora do casamento de um pai alemão (${breakInfo.parent}) antes de 1993, você pode recuperar a nacionalidade por uma declaração especial (§5), disponível até agosto de 2031.`);
+    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)","Declaração por discriminação histórica (§5)"), state:"VIABLE", msg, gaps:[],
       legal:`Declaración del §5 StAG (en vigor 20.8.2021, plazo hasta 19.8.2031) por discriminación histórica: ${breakInfo.reason==="genero"?"hijo/a matrimonial de madre alemana nacido 1949–1974":"hijo/a no matrimonial de padre alemán nacido 1949–1993"}. Adquisición por simple declaración ante el BVA, sin examen de idioma ni residencia, extensible a descendientes. Excepción excluyente: reconocimiento paterno entre 1.1.1970 y 31.8.1986.`});
   }
   // ----- VIA C2: pérdida de nacionalidad por matrimonio (mujer alemana, antes de 1953) -----
   if(A.facts.marriageloss==="si" && !deprivation){
-    vias.push({k:"C", name:T("Restitución por pérdida por matrimonio","Restitution for citizenship lost by marriage"), state:"DUDOSO",
-      msg:T("Una mujer de tu línea pudo perder la nacionalidad alemana al casarse con un extranjero antes de 1953. Esta discriminación histórica suele poder revertirse mediante declaración o renaturalización — requiere revisión de un especialista.","A woman in your line may have lost German citizenship by marrying a foreigner before 1953. This historical discrimination can often be reversed via declaration or re-naturalization — needs specialist review."), gaps:[],
+    vias.push({k:"C", name:T("Restitución por pérdida por matrimonio","Restitution for citizenship lost by marriage","Restituição por perda de nacionalidade por casamento"), state:"DUDOSO",
+      msg:T("Una mujer de tu línea pudo perder la nacionalidad alemana al casarse con un extranjero antes de 1953. Esta discriminación histórica suele poder revertirse mediante declaración o renaturalización — requiere revisión de un especialista.","A woman in your line may have lost German citizenship by marrying a foreigner before 1953. This historical discrimination can often be reversed via declaration or re-naturalization — needs specialist review.","Uma mulher da sua linha pode ter perdido a nacionalidade alemã ao casar com um estrangeiro antes de 1953. Essa discriminação histórica geralmente pode ser revertida mediante declaração ou renaturalização — requer revisão de um especialista."), gaps:[],
       legal:`Pérdida por matrimonio con extranjero antes del 1.4.1953 (§17 nº6 RuStAG antiguo, derogado por la igualdad del Art. 3(2) GG). Discriminación de género reversible: examinar declaración análoga al §5 StAG o renaturalización facilitada (§13 StAG). Requiere acta de matrimonio de la mujer alemana y prueba de su nacionalidad.`});
   }
   // ----- VIA B: restitución nazi (SOLO si hay un "sí" afirmativo; "no sé" no crea vía) -----
@@ -320,21 +325,23 @@ function analyze(){
     if(preNazi){
       st="DUDOSO";
       msg=T(`${G?G.name:"Tu antepasado"} emigró antes del régimen nazi (1933), así que la persecución nazi normalmente no sería la vía — salvo que se le privara de la nacionalidad estando ya en el extranjero (p. ej. el decreto de 1941 contra judíos emigrados). Conviene confirmarlo con un especialista.`,
-            `${G?G.name:"Your ancestor"} emigrated before the Nazi regime (1933), so Nazi persecution would normally not be the route — unless they were stripped of citizenship while already abroad (e.g. the 1941 decree against emigrated Jews). Best confirmed with a specialist.`);
+            `${G?G.name:"Your ancestor"} emigrated before the Nazi regime (1933), so Nazi persecution would normally not be the route — unless they were stripped of citizenship while already abroad (e.g. the 1941 decree against emigrated Jews). Best confirmed with a specialist.`,
+            `${G?G.name:"Seu antepassado"} emigrou antes do regime nazista (1933), portanto a perseguição nazista normalmente não seria a via — salvo que lhe tivessem retirado a nacionalidade já estando no exterior (p. ex. o decreto de 1941 contra judeus emigrados). Convém confirmá-lo com um especialista.`);
     } else {
       st="VIABLE";
       msg=T(`Como ${G?G.name:"tu antepasado"} o su familia perdieron la nacionalidad alemana por la persecución nazi, tú y tus descendientes podrían recuperarla por restitución, sin renunciar a tu nacionalidad actual.`,
-            `Since ${G?G.name:"your ancestor"} or their family lost German citizenship due to Nazi persecution, you and your descendants may reclaim it via restitution, without giving up your current nationality.`);
+            `Since ${G?G.name:"your ancestor"} or their family lost German citizenship due to Nazi persecution, you and your descendants may reclaim it via restitution, without giving up your current nationality.`,
+            `Como ${G?G.name:"seu antepassado"} ou sua família perderam a nacionalidade alemã devido à perseguição nazista, você e seus descendentes podem recuperá-la por restituição, sem renunciar à sua nacionalidade atual.`);
     }
-    vias.push({k:"B", name:T("Restitución por persecución nazi (Art. 116(2)/§15)","Nazi-persecution restitution (Art. 116(2)/§15)"), state:st, msg, gaps:[],
+    vias.push({k:"B", name:T("Restitución por persecución nazi (Art. 116(2)/§15)","Nazi-persecution restitution (Art. 116(2)/§15)","Restituição por perseguição nazista (Art. 116(2)/§15)"), state:st, msg, gaps:[],
       legal: preNazi
         ? `Restitución dudosa por la fecha: el antepasado emigró antes del régimen nazi (1933). El Art. 116(2) GG / §15 StAG cubre privaciones 1933–1945; la única hipótesis aplicable a un emigrante previo sería la 11.ª Ordenanza de la Ley de Ciudadanía del Reich (25.11.1941), que desnacionalizó a los judíos residentes en el extranjero. Confirmar la privación efectiva.`
         : `Restitución por persecución nazi: Art. 116(2) GG (restauración de quienes fueron privados de la nacionalidad entre 1933 y 1945) o §15 StAG (restitución, en vigor 20.8.2021, para quienes la perdieron de otro modo o no pudieron adquirirla por la persecución). Sin examen de idioma/residencia, admite doble nacionalidad y se extiende a descendientes. Documentos: prueba de la nacionalidad alemana previa y evidencia de persecución (Reichsanzeiger 1941, expedientes de Wiedergutmachung, Arolsen Archives, Yad Vashem).`});
   }
   // ----- VIA D: residencia -----
   if(A.facts.lives==="si"){
-    vias.push({k:"D", name:T("Naturalización por residencia (§10)","Naturalization by residence (§10)"), state:"DUDOSO",
-      msg:T("Si vives en Alemania, podrías naturalizarte tras 5 años cumpliendo idioma, sustento y test. Se evalúa aparte.","If you live in Germany, you may naturalize after 5 years meeting language, livelihood and test. Assessed separately."), gaps:[],
+    vias.push({k:"D", name:T("Naturalización por residencia (§10)","Naturalization by residence (§10)","Naturalização por residência (§10)"), state:"DUDOSO",
+      msg:T("Si vives en Alemania, podrías naturalizarte tras 5 años cumpliendo idioma, sustento y test. Se evalúa aparte.","If you live in Germany, you may naturalize after 5 years meeting language, livelihood and test. Assessed separately.","Se você mora na Alemanha, pode se naturalizar após 5 anos cumprindo idioma, sustento e teste. Avaliado separadamente."), gaps:[],
       legal:`Naturalización por residencia §10 StAG (reforma StARModG, 27.6.2024): 5 años de residencia legal, idioma B1, Einbürgerungstest, sustento propio, sin condenas y compromiso con la Ley Fundamental; doble nacionalidad ya admitida. (La vía exprés de 3 años fue derogada el 8.10.2025.) Verificar permiso de residencia y empadronamiento.`});
   }
   const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
@@ -342,21 +349,21 @@ function analyze(){
 
   // ----- Lista de "qué averiguar" (todas las incógnitas / "no sé") -----
   const inv=[]; const G2=germanAncestor();
-  if(!germanAncestorReached()) inv.push(T("Confirmar quién es tu antepasado alemán, en qué año y lugar nació, si emigró y en qué año lo hizo.","Confirm who your German ancestor is, the year and place they were born, whether they emigrated and in what year."));
-  [A.applicant,...A.chain].forEach(p=>{ if(p.name && !parseInt(p.birthYear)) inv.push(T(`Conseguir el año de nacimiento de ${p.name}.`,`Find ${p.name}'s birth year.`)); });
+  if(!germanAncestorReached()) inv.push(T("Confirmar quién es tu antepasado alemán, en qué año y lugar nació, si emigró y en qué año lo hizo.","Confirm who your German ancestor is, the year and place they were born, whether they emigrated and in what year.","Confirmar quem é seu antepassado alemão, em que ano e lugar nasceu, se emigrou e em que ano o fez."));
+  [A.applicant,...A.chain].forEach(p=>{ if(p.name && !parseInt(p.birthYear)) inv.push(T(`Conseguir el año de nacimiento de ${p.name}.`,`Find ${p.name}'s birth year.`,`Obter o ano de nascimento de ${p.name}.`)); });
   if(G2){
-    if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && (A.facts.matrikel==="ns"||!A.facts.matrikel)) inv.push(T(`Verificar en el archivo invenio si ${G2.name} tuvo inscripción consular (Matrikel).`,`Check the invenio archive for ${G2.name}'s consular registration (Matrikel).`));
-    if(A.facts.emigYear==="ns") inv.push(T(`Averiguar el año en que ${G2.name} emigró de Alemania.`,`Find the year ${G2.name} emigrated from Germany.`));
-    if(A.facts.natz1914==="ns") inv.push(T(`Confirmar si ${G2.name} se naturalizó en otro país antes de 1914.`,`Confirm whether ${G2.name} naturalized abroad before 1914.`));
+    if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && (A.facts.matrikel==="ns"||!A.facts.matrikel)) inv.push(T(`Verificar en el archivo invenio si ${G2.name} tuvo inscripción consular (Matrikel).`,`Check the invenio archive for ${G2.name}'s consular registration (Matrikel).`,`Verificar no arquivo invenio se ${G2.name} teve inscrição consular (Matrikel).`));
+    if(A.facts.emigYear==="ns") inv.push(T(`Averiguar el año en que ${G2.name} emigró de Alemania.`,`Find the year ${G2.name} emigrated from Germany.`,`Descobrir o ano em que ${G2.name} emigrou da Alemanha.`));
+    if(A.facts.natz1914==="ns") inv.push(T(`Confirmar si ${G2.name} se naturalizó en otro país antes de 1914.`,`Confirm whether ${G2.name} naturalized abroad before 1914.`,`Confirmar se ${G2.name} se naturalizou em outro país antes de 1914.`));
   }
-  if(A.facts.persecution==="ns") inv.push(T("Averiguar si tus antepasados sufrieron persecución nazi (1933–1945).","Find out whether your ancestors suffered Nazi persecution (1933–1945)."));
-  if(A.facts.natz25==="ns") inv.push(T("Confirmar si tú o un antepasado se naturalizaron en otro país por solicitud propia.","Confirm whether you or an ancestor naturalized abroad by application."));
+  if(A.facts.persecution==="ns") inv.push(T("Averiguar si tus antepasados sufrieron persecución nazi (1933–1945).","Find out whether your ancestors suffered Nazi persecution (1933–1945).","Descobrir se seus antepassados sofreram perseguição nazista (1933–1945)."));
+  if(A.facts.natz25==="ns") inv.push(T("Confirmar si tú o un antepasado se naturalizaron en otro país por solicitud propia.","Confirm whether you or an ancestor naturalized abroad by application.","Confirmar se você ou um antepassado se naturalizaram em outro país por solicitação própria."));
   if(A.facts.natz25==="si_apeticion" && !natzLoss && (A.facts.natz25_eu==="ns"||A.facts.natz25_year==="ns"||A.facts.natz25_permit==="ns"))
-    inv.push(T("Confirmar si esa naturalización causó la pérdida de la nacionalidad alemana: si el país es de la UE/Suiza, el año exacto, y si hubo permiso de conservación.","Confirm whether that naturalization caused loss of German citizenship: whether the country is EU/Switzerland, the exact year, and whether there was a retention permit."));
-  if(A.facts.adoption==="si") inv.push(T("Revisar con un especialista si la adopción en tu línea transmite la nacionalidad (edad del adoptado, nacionalidad del adoptante, fecha).","Have a specialist review whether the adoption in your line transmits citizenship (adoptee's age, adopter's nationality, date)."));
-  if(A.facts.mil28==="si") inv.push(T("Revisar con un especialista si el servicio militar voluntario en un ejército extranjero causó pérdida de la nacionalidad (§28).","Have a specialist check whether voluntary service in a foreign army caused loss of citizenship (§28)."));
-  if(A.facts.namechange==="si") inv.push(T("Reunir documentos que justifiquen los cambios de apellido / ortografía / identidad (deben acreditar que es la misma persona).","Gather documents justifying surname / spelling / identity changes (they must prove it's the same person)."));
-  if(A.facts.relative==="si") inv.push(T("Un familiar ya obtuvo la nacionalidad por el mismo antepasado: pídele su certificado de nacionalidad alemana o el número de expediente. Es un antecedente muy valioso para respaldar tu caso.","A relative already obtained citizenship through the same ancestor: ask them for their German citizenship certificate or case number. It's a very valuable supporting record for your case."));
+    inv.push(T("Confirmar si esa naturalización causó la pérdida de la nacionalidad alemana: si el país es de la UE/Suiza, el año exacto, y si hubo permiso de conservación.","Confirm whether that naturalization caused loss of German citizenship: whether the country is EU/Switzerland, the exact year, and whether there was a retention permit.","Confirmar se essa naturalização causou a perda da nacionalidade alemã: se o país é da UE/Suíça, o ano exato, e se houve autorização de conservação."));
+  if(A.facts.adoption==="si") inv.push(T("Revisar con un especialista si la adopción en tu línea transmite la nacionalidad (edad del adoptado, nacionalidad del adoptante, fecha).","Have a specialist review whether the adoption in your line transmits citizenship (adoptee's age, adopter's nationality, date).","Consultar um especialista sobre se a adoção na sua linha transmite a nacionalidade (idade do adotado, nacionalidade do adotante, data)."));
+  if(A.facts.mil28==="si") inv.push(T("Revisar con un especialista si el servicio militar voluntario en un ejército extranjero causó pérdida de la nacionalidad (§28).","Have a specialist check whether voluntary service in a foreign army caused loss of citizenship (§28).","Consultar um especialista sobre se o serviço militar voluntário em um exército estrangeiro causou perda da nacionalidade (§28)."));
+  if(A.facts.namechange==="si") inv.push(T("Reunir documentos que justifiquen los cambios de apellido / ortografía / identidad (deben acreditar que es la misma persona).","Gather documents justifying surname / spelling / identity changes (they must prove it's the same person).","Reunir documentos que justifiquem as mudanças de sobrenome / ortografia / identidade (devem comprovar que é a mesma pessoa)."));
+  if(A.facts.relative==="si") inv.push(T("Un familiar ya obtuvo la nacionalidad por el mismo antepasado: pídele su certificado de nacionalidad alemana o el número de expediente. Es un antecedente muy valioso para respaldar tu caso.","A relative already obtained citizenship through the same ancestor: ask them for their German citizenship certificate or case number. It's a very valuable supporting record for your case.","Um familiar já obteve a nacionalidade pelo mesmo antepassado: peça seu certificado de nacionalidade alemã ou o número do expediente. É um antecedente muito valioso para respaldar seu caso."));
 
   return {vias, investigate:inv};
 }
@@ -366,18 +373,19 @@ function germanAncestorReached(){ return state.chain.some(isGerman); }
    RENDER
    ========================================================================= */
 function setBar(p){ document.getElementById("bar").style.width=p+"%"; }
-function footer(){ document.getElementById("brandName").textContent=T("Nacionalidad Alemana","German Citizenship");
+function footer(){ document.getElementById("brandName").textContent=T("Nacionalidad Alemana","German Citizenship","Nacionalidade Alemã");
   document.getElementById("discFoot").textContent=T(
    "Esta herramienta ofrece solo una orientación preliminar y no constituye asesoría jurídica ni garantiza la nacionalidad. Consulta siempre con el Bundesverwaltungsamt, un consulado alemán o un abogado especializado.",
-   "This tool offers preliminary guidance only; it is not legal advice and does not guarantee citizenship. Always consult the Bundesverwaltungsamt, a German consulate or a specialized lawyer."); }
+   "This tool offers preliminary guidance only; it is not legal advice and does not guarantee citizenship. Always consult the Bundesverwaltungsamt, a German consulate or a specialized lawyer.",
+   "Esta ferramenta oferece apenas uma orientação preliminar e não constitui assessoria jurídica nem garante a nacionalidade. Consulte sempre o Bundesverwaltungsamt, um consulado alemão ou um advogado especializado."); }
 
 function chips(label,opts,onPick,selVal){
   return `<div class="step-label">${label}</div>`+opts.map(o=>
-    `<button class="opt ${selVal===o[0]?'sel':''}" onclick="${onPick}('${o[0]}')">${T(o[1],o[2])}${o[3]?`<small>${T(o[3],o[4])}</small>`:''}</button>`).join("");
+    `<button class="opt ${selVal===o[0]?'sel':''}" onclick="${onPick}('${o[0]}')">${T(o[1],o[2],o[3])}${o[4]?`<small>${T(o[4],o[5],o[6])}</small>`:''}</button>`).join("");
 }
 function navBtns(nextLabel,canNext){
   return `<div class="nav">
-    <button class="btn btn-ghost" onclick="back()" ${hist.length?'':"style='visibility:hidden'"}>${T("Atrás","Back")}</button>
+    <button class="btn btn-ghost" onclick="back()" ${hist.length?'':"style='visibility:hidden'"}>${T("Atrás","Back","Voltar")}</button>
     <button class="btn btn-primary" id="nx" onclick="advance()" ${canNext?'':'disabled'}>${nextLabel}</button></div>`;
 }
 
@@ -387,176 +395,176 @@ function render(){
   const s=state.screen;
 
   if(s==="intro"){ setBar(3);
-    app.innerHTML=`<h1>${T("¿Podrías tener derecho a la nacionalidad alemana?","Could you be entitled to German citizenship?")}</h1>
-      <p class="lead">${T("Vamos a reconstruir juntos tu árbol familiar, persona por persona, con nombres reales. Con eso evaluamos tu caso de forma concreta. Toma unos 5 minutos.","We'll rebuild your family tree together, person by person, with real names. That lets us assess your case concretely. Takes about 5 minutes.")}</p>
-      ${navBtns(T("Empezar","Start"),true)}`;
+    app.innerHTML=`<h1>${T("¿Podrías tener derecho a la nacionalidad alemana?","Could you be entitled to German citizenship?","Você poderia ter direito à nacionalidade alemã?")}</h1>
+      <p class="lead">${T("Vamos a reconstruir juntos tu árbol familiar, persona por persona, con nombres reales. Con eso evaluamos tu caso de forma concreta. Toma unos 5 minutos.","We'll rebuild your family tree together, person by person, with real names. That lets us assess your case concretely. Takes about 5 minutes.","Vamos reconstruir juntos sua árvore genealógica, pessoa por pessoa, com nomes reais. Com isso avaliamos seu caso de forma concreta. Leva cerca de 5 minutos.")}</p>
+      ${navBtns(T("Empezar","Start","Começar"),true)}`;
     return;
   }
 
   if(s==="applicant"){ setBar(8);
     const a=state.applicant;
-    app.innerHTML=`<div class="step-label">${T("Tú","You")}</div>
-      <div class="q">${T("Empecemos por ti","Let's start with you")}</div>
-      <div class="field"><label>${T("Tu nombre y apellido","Your full name")}</label><input id="i_name" value="${esc(a.name)}" oninput="state.applicant.name=this.value;chk()"></div>
+    app.innerHTML=`<div class="step-label">${T("Tú","You","Você")}</div>
+      <div class="q">${T("Empecemos por ti","Let's start with you","Vamos começar por você")}</div>
+      <div class="field"><label>${T("Tu nombre y apellido","Your full name","Seu nome e sobrenome")}</label><input id="i_name" value="${esc(a.name)}" oninput="state.applicant.name=this.value;chk()"></div>
       <div class="row">
-        <div class="field"><label>${T("Año de nacimiento","Birth year")}</label><input id="i_year" inputmode="numeric" value="${esc(a.birthYear)}" oninput="state.applicant.birthYear=this.value"></div>
-        <div class="field"><label>${T("País de nacimiento","Birth country")}</label><input value="${esc(a.country)}" oninput="state.applicant.country=this.value"></div>
+        <div class="field"><label>${T("Año de nacimiento","Birth year","Ano de nascimento")}</label><input id="i_year" inputmode="numeric" value="${esc(a.birthYear)}" oninput="state.applicant.birthYear=this.value"></div>
+        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><input value="${esc(a.country)}" oninput="state.applicant.country=this.value"></div>
       </div>
-      ${navBtns(T("Siguiente","Next"),!!a.name)}`;
+      ${navBtns(T("Siguiente","Next","Avançar"),!!a.name)}`;
     return;
   }
 
   if(s==="build_rel"){ setBar(14+state.chain.length*6);
     const child=currentChild();
     const q = state.chain.length===0
-      ? T("La raíz alemana de tu familia, ¿viene por tu padre o por tu madre?","Your family's German root — does it come through your father or your mother?")
-      : T(`La raíz alemana de ${esc(child.name||"esta persona")}, ¿viene por su padre o por su madre?`,`${esc(child.name||"this person")}'s German root — does it come through their father or mother?`);
-    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree")}</div>
+      ? T("La raíz alemana de tu familia, ¿viene por tu padre o por tu madre?","Your family's German root — does it come through your father or your mother?","A raiz alemã da sua família vem pelo seu pai ou pela sua mãe?")
+      : T(`La raíz alemana de ${esc(child.name||"esta persona")}, ¿viene por su padre o por su madre?`,`${esc(child.name||"this person")}'s German root — does it come through their father or mother?`,`A raiz alemã de ${esc(child.name||"esta pessoa")} vem pelo pai ou pela mãe?`);
+    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree","Árvore genealógica")}</div>
       ${renderTreeSoFar()}
       <div class="q">${q}</div>
-      <div class="qhint">${T("Subiremos por esa rama hasta tu antepasado alemán. Si los dos lados tienen raíces, elige «ambos» y empezamos por una.","We'll go up that branch to your German ancestor. If both sides have roots, pick \"both\" and we'll start with one.")}</div>
-      ${chips(T("Las raíces vienen por…","The roots come through…"),[
-        ["padre","El padre","The father"],["madre","La madre","The mother"],
-        ["ambos","Ambos lados (padre y madre)","Both sides (father and mother)"],
-        ["stop","No sé / no tengo más datos","I don't know / no more data"]],"pickRel",state.draft.rel)}
-      ${navBtns(T("Siguiente","Next"),!!state.draft.rel)}`;
+      <div class="qhint">${T("Subiremos por esa rama hasta tu antepasado alemán. Si los dos lados tienen raíces, elige «ambos» y empezamos por una.","We'll go up that branch to your German ancestor. If both sides have roots, pick \"both\" and we'll start with one.","Subiremos por esse ramo até seu antepassado alemão. Se os dois lados têm raízes, escolha «ambos» e começamos por um.")}</div>
+      ${chips(T("Las raíces vienen por…","The roots come through…","As raízes vêm por…"),[
+        ["padre","El padre","The father","O pai"],["madre","La madre","The mother","A mãe"],
+        ["ambos","Ambos lados (padre y madre)","Both sides (father and mother)","Ambos os lados (pai e mãe)"],
+        ["stop","No sé / no tengo más datos","I don't know / no more data","Não sei / não tenho mais dados"]],"pickRel",state.draft.rel)}
+      ${navBtns(T("Siguiente","Next","Avançar"),!!state.draft.rel)}`;
     return;
   }
 
   if(s==="build_which"){ setBar(15+state.chain.length*6);
     const child=currentChild();
-    const ref = state.chain.length===0 ? T("tu","your") : T(`de ${esc(child.name)}`,`${esc(child.name)}'s`);
-    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree")}</div>
+    const ref = state.chain.length===0 ? T("tu","your","seu/sua") : T(`de ${esc(child.name)}`,`${esc(child.name)}'s`,`de ${esc(child.name)}`);
+    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree","Árvore genealógica")}</div>
       ${renderTreeSoFar()}
-      <div class="q">${T("Raíces por ambos lados — ¡buena señal!","Roots on both sides — good sign!")}</div>
-      <div class="qhint">${T(`Evaluamos una rama a la vez para no mezclar las líneas. ¿Por cuál de los padres ${ref==="tu"?"tuyos":ref} empezamos? Después podrás evaluar la otra.`,`We assess one branch at a time. Which parent shall we start with? You can assess the other afterwards.`)}</div>
-      ${chips("",[["padre","Empezar por el padre","Start with the father"],["madre","Empezar por la madre","Start with the mother"]],"pickWhich",state.draft.rel)}
-      ${navBtns(T("Siguiente","Next"),!!state.draft.rel)}`;
+      <div class="q">${T("Raíces por ambos lados — ¡buena señal!","Roots on both sides — good sign!","Raízes dos dois lados — ótima notícia!")}</div>
+      <div class="qhint">${T(`Evaluamos una rama a la vez para no mezclar las líneas. ¿Por cuál de los padres ${ref==="tu"?"tuyos":ref} empezamos? Después podrás evaluar la otra.`,`We assess one branch at a time. Which parent shall we start with? You can assess the other afterwards.`,`Avaliamos um ramo por vez. Por qual dos pais começamos? Depois você pode avaliar o outro.`)}</div>
+      ${chips("",[["padre","Empezar por el padre","Start with the father","Começar pelo pai"],["madre","Empezar por la madre","Start with the mother","Começar pela mãe"]],"pickWhich",state.draft.rel)}
+      ${navBtns(T("Siguiente","Next","Avançar"),!!state.draft.rel)}`;
     return;
   }
 
   if(s==="build_citizen"){ setBar(17+state.chain.length*6);
     const p=state.chain[state.chain.length-1];
-    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree")}</div>
+    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree","Árvore genealógica")}</div>
       ${renderTreeSoFar()}
-      <div class="q">${T(`¿${esc(p.name)} tenía la nacionalidad alemana, aunque haya nacido ${p.country?("en "+esc(p.country)):"fuera de Alemania"}?`,`Did ${esc(p.name)} hold German citizenship, even though born ${p.country?("in "+esc(p.country)):"outside Germany"}?`)}</div>
-      <div class="qhint">${T("Por ejemplo, hijo/a de alemanes nacido/a en el extranjero. Si era alemán/a, esta es tu raíz alemana y dejamos de subir.","E.g., a child of Germans born abroad. If they were German, this is your German root and we stop here.")}</div>
-      ${chips("",[["si","Sí, era ciudadano/a alemán/a","Yes, they were a German citizen"],["no","No","No"],["ns","No sé","Not sure"]],"pickCitizen",p.germanCitizen)}
-      ${navBtns(T("Siguiente","Next"),!!p.germanCitizen)}`;
+      <div class="q">${T(`¿${esc(p.name)} tenía la nacionalidad alemana, aunque haya nacido ${p.country?("en "+esc(p.country)):"fuera de Alemania"}?`,`Did ${esc(p.name)} hold German citizenship, even though born ${p.country?("in "+esc(p.country)):"outside Germany"}?`,`${esc(p.name)} tinha a nacionalidade alemã, mesmo tendo nascido ${p.country?("em "+esc(p.country)):"fora da Alemanha"}?`)}</div>
+      <div class="qhint">${T("Por ejemplo, hijo/a de alemanes nacido/a en el extranjero. Si era alemán/a, esta es tu raíz alemana y dejamos de subir.","E.g., a child of Germans born abroad. If they were German, this is your German root and we stop here.","Por exemplo, filho/a de alemães nascido/a no exterior. Se era alemão/ã, esta é sua raiz alemã e paramos aqui.")}</div>
+      ${chips("",[["si","Sí, era ciudadano/a alemán/a","Yes, they were a German citizen","Sim, era cidadão/ã alemão/ã"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickCitizen",p.germanCitizen)}
+      ${navBtns(T("Siguiente","Next","Avançar"),!!p.germanCitizen)}`;
     return;
   }
 
   if(s==="build_person"){ setBar(16+state.chain.length*6);
     const child=currentChild(); const rolEs=state.draft.rel==="padre"?"padre":"madre"; const rolEn=state.draft.rel==="padre"?"father":"mother";
     const d=state.draft;
-    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree")}</div>
+    app.innerHTML=`<div class="step-label">${T("Árbol familiar","Family tree","Árvore genealógica")}</div>
       ${renderTreeSoFar()}
-      <div class="q">${T(`Cuéntame sobre ${esc(state.draft.rel==="padre"?"el padre":"la madre")} de ${esc(child.name||"esta persona")}`,`Tell me about ${esc(child.name||"this person")}'s ${rolEn}`)}</div>
-      <div class="field"><label>${T("Nombre y apellido","Full name")}</label><input value="${esc(d.name)}" oninput="state.draft.name=this.value;chk()"></div>
+      <div class="q">${T(`Cuéntame sobre ${esc(state.draft.rel==="padre"?"el padre":"la madre")} de ${esc(child.name||"esta persona")}`,`Tell me about ${esc(child.name||"this person")}'s ${rolEn}`,`Fale sobre ${esc(state.draft.rel==="padre"?"o pai":"a mãe")} de ${esc(child.name||"esta pessoa")}`)}</div>
+      <div class="field"><label>${T("Nombre y apellido","Full name","Nome e sobrenome")}</label><input value="${esc(d.name)}" oninput="state.draft.name=this.value;chk()"></div>
       <div class="row">
-        <div class="field"><label>${T("Año de nacimiento (aprox.)","Birth year (approx.)")}</label><input inputmode="numeric" value="${esc(d.birthYear)}" oninput="state.draft.birthYear=this.value"></div>
-        <div class="field"><label>${T("País de nacimiento","Birth country")}</label><input value="${esc(d.country)}" oninput="state.draft.country=this.value"></div>
+        <div class="field"><label>${T("Año de nacimiento (aprox.)","Birth year (approx.)","Ano de nascimento (aprox.)")}</label><input inputmode="numeric" value="${esc(d.birthYear)}" oninput="state.draft.birthYear=this.value"></div>
+        <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><input value="${esc(d.country)}" oninput="state.draft.country=this.value"></div>
       </div>
-      <div class="qhint">${T("Si nació en Alemania, ¡llegamos a tu raíz alemana!","If born in Germany, we've reached your German root!")}</div>
-      ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`),
-        [["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickWed",d.childInWedlock)}
-      <div class="field" style="margin-top:12px"><label>${T("¿En qué año se casaron sus padres? (si lo sabes)","In what year did their parents marry? (if known)")}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional")}"></div>
-      ${navBtns(T("Agregar y seguir","Add & continue"),!!(d.name&&d.childInWedlock))}`;
+      <div class="qhint">${T("Si nació en Alemania, ¡llegamos a tu raíz alemana!","If born in Germany, we've reached your German root!","Se nasceu na Alemanha, chegamos à sua raiz alemã!")}</div>
+      ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`,`${esc(child.name||"Esta pessoa")} nasceu dentro do casamento dos seus pais?`),
+        [["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickWed",d.childInWedlock)}
+      <div class="field" style="margin-top:12px"><label>${T("¿En qué año se casaron sus padres? (si lo sabes)","In what year did their parents marry? (if known)","Em que ano os pais se casaram? (se souber)")}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional","Opcional")}"></div>
+      ${navBtns(T("Agregar y seguir","Add & continue","Adicionar e continuar"),!!(d.name&&d.childInWedlock))}`;
     return;
   }
 
   if(s==="facts"){ setBar(62+state.fIdx*5);
     const f=curFact(); const G=germanAncestor();
-    let html=`<div class="step-label">${T("Datos clave","Key facts")}</div>${renderTreeSoFar()}`;
+    let html=`<div class="step-label">${T("Datos clave","Key facts","Dados principais")}</div>${renderTreeSoFar()}`;
     if(f==="f_emig"){
-      html+=`<div class="q">${T(`¿Cuándo emigró ${esc(G?G.name:"tu antepasado")} de Alemania?`,`When did ${esc(G?G.name:"your ancestor")} emigrate from Germany?`)}</div>
-        <div class="qhint">${T("La fecha es clave: antes de 1914 hay una regla de pérdida automática, y el período del régimen nazi (1933–1945) puede abrir la vía de restitución.","The date is key: before 1914 there's an automatic-loss rule, and the Nazi-regime period (1933–1945) may open the restitution route.")}</div>
-        ${chips("",[["pre1904","Antes de ~1904","Before ~1904"],["1904_1913","Entre 1904 y 1913","1904–1913"],["1914_1932","Entre 1914 y 1932","1914–1932"],["nazi_era","Entre 1933 y 1945 (período del régimen nazi)","1933–1945 (Nazi-regime period)"],["post1945","En 1946 o después","1946 or later"],["no_emig","No emigró","Did not emigrate"],["ns","No sé","Not sure"]],"pickFact",state.facts.emigYear)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.emigYear);
+      html+=`<div class="q">${T(`¿Cuándo emigró ${esc(G?G.name:"tu antepasado")} de Alemania?`,`When did ${esc(G?G.name:"your ancestor")} emigrate from Germany?`,`Quando ${esc(G?G.name:"seu antepassado")} emigrou da Alemanha?`)}</div>
+        <div class="qhint">${T("La fecha es clave: antes de 1914 hay una regla de pérdida automática, y el período del régimen nazi (1933–1945) puede abrir la vía de restitución.","The date is key: before 1914 there's an automatic-loss rule, and the Nazi-regime period (1933–1945) may open the restitution route.","A data é importante: antes de 1914 há uma regra de perda automática, e o período do regime nazista (1933–1945) pode abrir a via de restituição.")}</div>
+        ${chips("",[["pre1904","Antes de ~1904","Before ~1904","Antes de ~1904"],["1904_1913","Entre 1904 y 1913","1904–1913","Entre 1904 e 1913"],["1914_1932","Entre 1914 y 1932","1914–1932","Entre 1914 e 1932"],["nazi_era","Entre 1933 y 1945 (período del régimen nazi)","1933–1945 (Nazi-regime period)","Entre 1933 e 1945 (período do regime nazista)"],["post1945","En 1946 o después","1946 or later","Em 1946 ou depois"],["no_emig","No emigró","Did not emigrate","Não emigrou"],["ns","No sé","Not sure","Não sei"]],"pickFact",state.facts.emigYear)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.emigYear);
     } else if(f==="f_matrikel"){
-      html+=`<div class="q">${T(`¿${esc(G.name)} mantuvo su vínculo oficial con Alemania (inscripción consular «Matrikel» o pasaporte vigente)?`,`Did ${esc(G.name)} keep an official link to Germany (consular «Matrikel» registration or valid passport)?`)}</div>
-        <div class="qhint">${T("La mayoría NO se inscribió. Se puede verificar gratis en el archivo invenio.","Most did NOT register. It can be checked for free in the invenio archive.")}</div>
-        ${chips("",[["si","Sí, se inscribió / mantuvo papeles","Yes, registered / kept papers"],["no","No","No"],["ns","No sé","Not sure"]],"pickFact2",state.facts.matrikel)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.matrikel);
+      html+=`<div class="q">${T(`¿${esc(G.name)} mantuvo su vínculo oficial con Alemania (inscripción consular «Matrikel» o pasaporte vigente)?`,`Did ${esc(G.name)} keep an official link to Germany (consular «Matrikel» registration or valid passport)?`,`${esc(G.name)} manteve seu vínculo oficial com a Alemanha (inscrição consular «Matrikel» ou passaporte válido)?`)}</div>
+        <div class="qhint">${T("La mayoría NO se inscribió. Se puede verificar gratis en el archivo invenio.","Most did NOT register. It can be checked for free in the invenio archive.","A maioria NÃO se inscreveu. Pode ser verificado gratuitamente no arquivo invenio.")}</div>
+        ${chips("",[["si","Sí, se inscribió / mantuvo papeles","Yes, registered / kept papers","Sim, inscreveu-se / manteve documentos"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickFact2",state.facts.matrikel)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.matrikel);
     } else if(f==="f_natz1914"){
-      html+=`<div class="q">${T(`¿${esc(G.name)} se naturalizó ciudadano de otro país ANTES de 1914?`,`Did ${esc(G.name)} naturalize as a citizen of another country BEFORE 1914?`)}</div>
-        ${chips("",[["usa","Sí, en EE. UU.","Yes, in the USA"],["otro","Sí, en otro país","Yes, in another country"],["no","No","No"],["ns","No sé","Not sure"]],"pickFact3",state.facts.natz1914)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz1914);
+      html+=`<div class="q">${T(`¿${esc(G.name)} se naturalizó ciudadano de otro país ANTES de 1914?`,`Did ${esc(G.name)} naturalize as a citizen of another country BEFORE 1914?`,`${esc(G.name)} se naturalizou cidadão de outro país ANTES de 1914?`)}</div>
+        ${chips("",[["usa","Sí, en EE. UU.","Yes, in the USA","Sim, nos EUA"],["otro","Sí, en otro país","Yes, in another country","Sim, em outro país"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickFact3",state.facts.natz1914)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz1914);
     } else if(f==="f_persecution"){
-      html+=`<div class="q">${T(`¿${esc(G?G.name:"tu antepasado alemán")} o su familia fueron perseguidos por el régimen nazi (1933–1945) y, por esa razón, perdieron la nacionalidad alemana o no pudieron obtenerla?`,`Were ${esc(G?G.name:"your German ancestor")} or their family persecuted by the Nazi regime (1933–1945) and, for that reason, lost German citizenship or could not obtain it?`)}</div>
-        <div class="qhint">${T("Incluye, por ejemplo, a familias judías que huyeron de Alemania o a quienes el régimen les retiró la nacionalidad.","Includes, for example, Jewish families who fled Germany, or whose citizenship was withdrawn by the regime.")}</div>
-        ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactPers",state.facts.persecution)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.persecution);
+      html+=`<div class="q">${T(`¿${esc(G?G.name:"tu antepasado alemán")} o su familia fueron perseguidos por el régimen nazi (1933–1945) y, por esa razón, perdieron la nacionalidad alemana o no pudieron obtenerla?`,`Were ${esc(G?G.name:"your German ancestor")} or their family persecuted by the Nazi regime (1933–1945) and, for that reason, lost German citizenship or could not obtain it?`,`${esc(G?G.name:"seu antepassado alemão")} ou sua família foram perseguidos pelo regime nazista (1933–1945) e, por essa razão, perderam a nacionalidade alemã ou não puderam obtê-la?`)}</div>
+        <div class="qhint">${T("Incluye, por ejemplo, a familias judías que huyeron de Alemania o a quienes el régimen les retiró la nacionalidad.","Includes, for example, Jewish families who fled Germany, or whose citizenship was withdrawn by the regime.","Inclui, por exemplo, famílias judias que fugiram da Alemanha ou pessoas a quem o regime retirou a nacionalidade.")}</div>
+        ${chips("",[["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickFactPers",state.facts.persecution)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.persecution);
     } else if(f==="f_natz25"){
-      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} o alguien de tu línea familiar se hizo ciudadano de otro país (se naturalizó) en algún momento?`,`Did ${esc(state.applicant.name||"you")} or someone in your family line become a citizen of another country (naturalize) at some point?`)}</div>
-        <div class="qhint">${T("Nos referimos a obtener otra nacionalidad solicitándola — no a la que se recibe al nacer en un país.","We mean obtaining another nationality by applying for it — not the one received by being born in a country.")}</div>
-        ${chips("",[["si_apeticion","Sí, la solicitó y la obtuvo","Yes, applied for and obtained it"],
-                   ["automatica","No; solo tiene la nacionalidad del país donde nació","No; only has the nationality of the country where they were born"],
-                   ["no","No, ninguna otra","No, none other"],
-                   ["ns","No sé","Not sure"]],"pickFact4",state.facts.natz25)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25);
+      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} o alguien de tu línea familiar se hizo ciudadano de otro país (se naturalizó) en algún momento?`,`Did ${esc(state.applicant.name||"you")} or someone in your family line become a citizen of another country (naturalize) at some point?`,`${esc(state.applicant.name||"Você")} ou alguém da sua linha familiar se tornou cidadão de outro país (se naturalizou) em algum momento?`)}</div>
+        <div class="qhint">${T("Nos referimos a obtener otra nacionalidad solicitándola — no a la que se recibe al nacer en un país.","We mean obtaining another nationality by applying for it — not the one received by being born in a country.","Referimo-nos a obter outra nacionalidade solicitando-a — não à que se recebe ao nascer em um país.")}</div>
+        ${chips("",[["si_apeticion","Sí, la solicitó y la obtuvo","Yes, applied for and obtained it","Sim, solicitou e obteve"],
+                   ["automatica","No; solo tiene la nacionalidad del país donde nació","No; only has the nationality of the country where they were born","Não; só tem a nacionalidade do país onde nasceu"],
+                   ["no","No, ninguna otra","No, none other","Não, nenhuma outra"],
+                   ["ns","No sé","Not sure","Não sei"]],"pickFact4",state.facts.natz25)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz25);
     } else if(f==="f_natz25_eu"){
-      html+=`<div class="q">${T("Esa otra nacionalidad, ¿es de un país de la Unión Europea o de Suiza?","Is that other nationality from a European Union country or Switzerland?")}</div>
-        ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactEu",state.facts.natz25_eu)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_eu);
+      html+=`<div class="q">${T("Esa otra nacionalidad, ¿es de un país de la Unión Europea o de Suiza?","Is that other nationality from a European Union country or Switzerland?","Essa outra nacionalidade é de um país da União Europeia ou da Suíça?")}</div>
+        ${chips("",[["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickFactEu",state.facts.natz25_eu)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz25_eu);
     } else if(f==="f_natz25_year"){
-      html+=`<div class="q">${T("¿La obtuvo antes del año 2024?","Was it obtained before the year 2024?")}</div>
-        ${chips("",[["antes","Sí, antes de 2024","Yes, before 2024"],["desde2024","No, en 2024 o después","No, in 2024 or later"],["ns","No sé","Not sure"]],"pickFactYear",state.facts.natz25_year)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_year);
+      html+=`<div class="q">${T("¿La obtuvo antes del año 2024?","Was it obtained before the year 2024?","Foi obtida antes do ano 2024?")}</div>
+        ${chips("",[["antes","Sí, antes de 2024","Yes, before 2024","Sim, antes de 2024"],["desde2024","No, en 2024 o después","No, in 2024 or later","Não, em 2024 ou depois"],["ns","No sé","Not sure","Não sei"]],"pickFactYear",state.facts.natz25_year)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz25_year);
     } else if(f==="f_natz25_permit"){
-      html+=`<div class="q">${T("Antes de naturalizarse, ¿pidió a Alemania un permiso especial para conservar la nacionalidad alemana?","Before naturalizing, did they ask Germany for a special permit to keep their German citizenship?")}</div>
-        <div class="qhint">${T("Se llama «permiso de conservación» (Beibehaltungsgenehmigung). La gran mayoría no lo pedía.","It's called a \"retention permit\" (Beibehaltungsgenehmigung). The vast majority did not request it.")}</div>
-        ${chips("",[["no","No / No lo pidió","No / didn't request it"],["si","Sí, lo pidió y se lo concedieron","Yes, requested and granted"],["ns","No sé","Not sure"]],"pickFactPermit",state.facts.natz25_permit)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_permit);
+      html+=`<div class="q">${T("Antes de naturalizarse, ¿pidió a Alemania un permiso especial para conservar la nacionalidad alemana?","Before naturalizing, did they ask Germany for a special permit to keep their German citizenship?","Antes de se naturalizar, pediu à Alemanha uma autorização especial para conservar a nacionalidade alemã?")}</div>
+        <div class="qhint">${T("Se llama «permiso de conservación» (Beibehaltungsgenehmigung). La gran mayoría no lo pedía.","It's called a \"retention permit\" (Beibehaltungsgenehmigung). The vast majority did not request it.","Chama-se «autorização de conservação» (Beibehaltungsgenehmigung). A grande maioria não a solicitava.")}</div>
+        ${chips("",[["no","No / No lo pidió","No / didn't request it","Não / Não solicitou"],["si","Sí, lo pidió y se lo concedieron","Yes, requested and granted","Sim, solicitou e foi concedida"],["ns","No sé","Not sure","Não sei"]],"pickFactPermit",state.facts.natz25_permit)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz25_permit);
     } else if(f==="f_natz25_when"){
-      html+=`<div class="q">${T("Esa naturalización en otro país, ¿ocurrió antes o después de que naciera su hijo/a por quien sigue tu línea?","That naturalization abroad — was it before or after the birth of the child through whom your line continues?")}</div>
-        <div class="qhint">${T("Si el hijo/a ya había nacido, normalmente ya era alemán/a y no se ve afectado.","If the child was already born, they were usually already German and unaffected.")}</div>
-        ${chips("",[["despues","Después de que naciera su hijo/a","After the child was born"],["antes","Antes de que naciera su hijo/a","Before the child was born"],["ns","Fui yo / no sé","It was me / not sure"]],"pickFactWhen",state.facts.natz25_when)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.natz25_when);
+      html+=`<div class="q">${T("Esa naturalización en otro país, ¿ocurrió antes o después de que naciera su hijo/a por quien sigue tu línea?","That naturalization abroad — was it before or after the birth of the child through whom your line continues?","Essa naturalização em outro país ocorreu antes ou depois do nascimento do filho/a por quem continua sua linha?")}</div>
+        <div class="qhint">${T("Si el hijo/a ya había nacido, normalmente ya era alemán/a y no se ve afectado.","If the child was already born, they were usually already German and unaffected.","Se o filho/a já havia nascido, normalmente já era alemão/ã e não é afetado.")}</div>
+        ${chips("",[["despues","Después de que naciera su hijo/a","After the child was born","Depois do nascimento do filho/a"],["antes","Antes de que naciera su hijo/a","Before the child was born","Antes do nascimento do filho/a"],["ns","Fui yo / no sé","It was me / not sure","Fui eu / não sei"]],"pickFactWhen",state.facts.natz25_when)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.natz25_when);
     } else if(f==="f_adoption_age"){
-      html+=`<div class="q">${T("¿La persona fue adoptada siendo menor de edad o siendo adulta?","Was the person adopted as a minor or as an adult?")}</div>
-        ${chips("",[["menor","Menor de edad","As a minor"],["adulto","Adulta","As an adult"],["ns","No sé","Not sure"]],"pickFactAdage",state.facts.adoption_age)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.adoption_age);
+      html+=`<div class="q">${T("¿La persona fue adoptada siendo menor de edad o siendo adulta?","Was the person adopted as a minor or as an adult?","A pessoa foi adotada sendo menor de idade ou adulta?")}</div>
+        ${chips("",[["menor","Menor de edad","As a minor","Menor de idade"],["adulto","Adulta","As an adult","Adulta"],["ns","No sé","Not sure","Não sei"]],"pickFactAdage",state.facts.adoption_age)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.adoption_age);
     } else if(f==="f_mil28"){
-      html+=`<div class="q">${T("¿Tú o alguien de la línea prestó servicio militar voluntario en el ejército de otro país (del que era nacional) desde el año 2000?","Did you or someone in the line do voluntary military service in another country's army (of which they were a national) since the year 2000?")}</div>
-        ${chips("",[["no","No","No"],["si","Sí","Yes"],["ns","No sé","Not sure"]],"pickFactMil",state.facts.mil28)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.mil28);
+      html+=`<div class="q">${T("¿Tú o alguien de la línea prestó servicio militar voluntario en el ejército de otro país (del que era nacional) desde el año 2000?","Did you or someone in the line do voluntary military service in another country's army (of which they were a national) since the year 2000?","Você ou alguém da linha prestou serviço militar voluntário no exército de outro país (do qual era nacional) desde o ano 2000?")}</div>
+        ${chips("",[["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickFactMil",state.facts.mil28)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.mil28);
     } else if(f==="f_namechange"){
-      html+=`<div class="q">${T("¿Hubo cambios de apellido, errores de ortografía en los apellidos, o cambios de identidad al emigrar en tu línea?","Were there surname changes, spelling errors in surnames, or identity changes upon emigrating in your line?")}</div>
-        <div class="qhint">${T("No afecta la elegibilidad, pero los documentos tendrán que acreditar que se trata de la misma persona.","It doesn't affect eligibility, but documents will need to prove it's the same person.")}</div>
-        ${chips("",[["no","No","No"],["si","Sí","Yes"],["ns","No sé","Not sure"]],"pickFactNc",state.facts.namechange)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.namechange);
+      html+=`<div class="q">${T("¿Hubo cambios de apellido, errores de ortografía en los apellidos, o cambios de identidad al emigrar en tu línea?","Were there surname changes, spelling errors in surnames, or identity changes upon emigrating in your line?","Houve mudanças de sobrenome, erros de ortografia nos sobrenomes, ou mudanças de identidade ao emigrar na sua linha?")}</div>
+        <div class="qhint">${T("No afecta la elegibilidad, pero los documentos tendrán que acreditar que se trata de la misma persona.","It doesn't affect eligibility, but documents will need to prove it's the same person.","Não afeta a elegibilidade, mas os documentos precisarão provar que se trata da mesma pessoa.")}</div>
+        ${chips("",[["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickFactNc",state.facts.namechange)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.namechange);
     } else if(f==="f_adoption"){
-      html+=`<div class="q">${T("¿Alguna persona de esta línea fue adoptada (no es hijo/a biológico/a)?","Was anyone in this line adopted (not a biological child)?")}</div>
-        <div class="qhint">${T("La adopción transmite la nacionalidad solo bajo ciertas condiciones; conviene revisarla.","Adoption transmits citizenship only under certain conditions; it should be reviewed.")}</div>
-        ${chips("",[["no","No","No"],["si","Sí","Yes"],["ns","No sé","Not sure"]],"pickFactAd",state.facts.adoption)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.adoption);
+      html+=`<div class="q">${T("¿Alguna persona de esta línea fue adoptada (no es hijo/a biológico/a)?","Was anyone in this line adopted (not a biological child)?","Alguma pessoa desta linha foi adotada (não é filho/a biológico/a)?")}</div>
+        <div class="qhint">${T("La adopción transmite la nacionalidad solo bajo ciertas condiciones; conviene revisarla.","Adoption transmits citizenship only under certain conditions; it should be reviewed.","A adoção transmite a nacionalidade apenas sob certas condições; convém revisá-la.")}</div>
+        ${chips("",[["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickFactAd",state.facts.adoption)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.adoption);
     } else if(f==="f_marriageloss"){
-      html+=`<div class="q">${T("¿Alguna mujer de tu línea alemana se casó con un extranjero antes de 1953?","Did any woman in your German line marry a foreigner before 1953?")}</div>
-        <div class="qhint">${T("Antes de 1953 una alemana podía perder su nacionalidad al casarse con un extranjero — pero suele ser reversible.","Before 1953 a German woman could lose her citizenship by marrying a foreigner — but it's often reversible.")}</div>
-        ${chips("",[["no","No","No"],["si","Sí","Yes"],["ns","No sé","Not sure"]],"pickFactMar",state.facts.marriageloss)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.marriageloss);
+      html+=`<div class="q">${T("¿Alguna mujer de tu línea alemana se casó con un extranjero antes de 1953?","Did any woman in your German line marry a foreigner before 1953?","Alguma mulher da sua linha alemã se casou com um estrangeiro antes de 1953?")}</div>
+        <div class="qhint">${T("Antes de 1953 una alemana podía perder su nacionalidad al casarse con un extranjero — pero suele ser reversible.","Before 1953 a German woman could lose her citizenship by marrying a foreigner — but it's often reversible.","Antes de 1953 uma alemã podia perder sua nacionalidade ao casar com um estrangeiro — mas geralmente é reversível.")}</div>
+        ${chips("",[["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickFactMar",state.facts.marriageloss)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.marriageloss);
     } else if(f==="f_lives"){
-      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} vives actualmente en Alemania?`,`Do ${esc(state.applicant.name||"you")} currently live in Germany?`)}</div>
-        ${chips("",[["si","Sí","Yes"],["no","No","No"]],"pickFact5",state.facts.lives)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.lives);
+      html+=`<div class="q">${T(`¿${esc(state.applicant.name||"Tú")} vives actualmente en Alemania?`,`Do ${esc(state.applicant.name||"you")} currently live in Germany?`,`${esc(state.applicant.name||"Você")} mora atualmente na Alemanha?`)}</div>
+        ${chips("",[["si","Sí","Yes","Sim"],["no","No","No","Não"]],"pickFact5",state.facts.lives)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.lives);
     } else if(f==="f_relative"){
-      html+=`<div class="q">${T("¿Algún familiar tuyo ya obtuvo la nacionalidad alemana por este mismo antepasado?","Has any relative of yours already obtained German citizenship through this same ancestor?")}</div>
-        <div class="qhint">${T("Si alguien de tu familia ya lo logró por la misma línea, es una señal muy fuerte para tu caso.","If someone in your family already succeeded through the same line, it's a very strong signal for your case.")}</div>
-        ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactRel",state.facts.relative)}`;
-      html+=navBtns(T("Siguiente","Next"),!!state.facts.relative);
+      html+=`<div class="q">${T("¿Algún familiar tuyo ya obtuvo la nacionalidad alemana por este mismo antepasado?","Has any relative of yours already obtained German citizenship through this same ancestor?","Algum familiar seu já obteve a nacionalidade alemã por este mesmo antepassado?")}</div>
+        <div class="qhint">${T("Si alguien de tu familia ya lo logró por la misma línea, es una señal muy fuerte para tu caso.","If someone in your family already succeeded through the same line, it's a very strong signal for your case.","Se alguém da sua família já conseguiu pela mesma linha, é um sinal muito forte para o seu caso.")}</div>
+        ${chips("",[["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickFactRel",state.facts.relative)}`;
+      html+=navBtns(T("Siguiente","Next","Avançar"),!!state.facts.relative);
     } else if(f==="f_hasgermandoc"){
       html+=`<div class="q">${T("¿Cuentas con algún documento alemán del antepasado?","Do you have any German document from your ancestor?","Você possui algum documento alemão do seu antepassado?")}</div>
         <div class="qhint">${T("Por ejemplo: partida de nacimiento alemana, pasaporte, registro de emigración, Matrikel, u otro documento oficial.","For example: German birth certificate, passport, emigration record, Matrikel, or other official document.","Por exemplo: certidão de nascimento alemã, passaporte, registro de emigração, Matrikel, ou outro documento oficial.")}</div>
-        ${chips("",[["si",T("Sí, tengo algún documento","Yes, I have a document","Sim, tenho algum documento")],["no",T("No","No","Não")],["ns",T("No sé / No estoy seguro/a","Not sure","Não sei")]],"pickHasGermanDoc",state.facts.hasGermanDoc)}`;
+        ${chips("",[["si","Sí, tengo algún documento","Yes, I have a document","Sim, tenho algum documento"],["no","No","No","Não"],["ns","No sé / No estoy seguro/a","Not sure","Não sei / Não tenho certeza"]],"pickHasGermanDoc",state.facts.hasGermanDoc)}`;
       html+=navBtns(T("Siguiente","Next","Próximo"),!!state.facts.hasGermanDoc);
     } else if(f==="f_germandoctype"){
       html+=`<div class="q">${T("¿Qué tipo de documento tienes?","What type of document do you have?","Que tipo de documento você tem?")}</div>
         ${chips("",[
-          ["acta_nac",T("Certificado de nacimiento alemán","German birth certificate","Certidão de nascimento alemã")],
-          ["doc_aleman",T("Algún otro documento alemán (sin especificar)","Some other German document","Algum outro documento alemão")],
-          ["prueba_emig",T("Prueba de emigración (pasaporte, lista de pasajeros, etc.)","Emigration proof (passport, passenger list, etc.)","Prova de emigração (passaporte, lista de passageiros, etc.)")],
-          ["otro",T("Otro","Other","Outro")]
+          ["acta_nac","Certificado de nacimiento alemán","German birth certificate","Certidão de nascimento alemã"],
+          ["doc_aleman","Algún otro documento alemán (sin especificar)","Some other German document","Algum outro documento alemão"],
+          ["prueba_emig","Prueba de emigración (pasaporte, lista de pasajeros, etc.)","Emigration proof (passport, passenger list, etc.)","Prova de emigração (passaporte, lista de passageiros, etc.)"],
+          ["otro","Otro","Other","Outro"]
         ],"pickGermanDocType",state.facts.germanDocType)}`;
       if(state.facts.germanDocType==="otro"){
         html+=`<div class="field"><input type="text" placeholder="${T("Describe el documento…","Describe the document…","Descreva o documento…")}" value="${esc(state.facts.germanDocTypeOther||"")}" oninput="state.facts.germanDocTypeOther=this.value.trim();chk()"></div>`;
@@ -564,10 +572,10 @@ function render(){
       const docOk=state.facts.germanDocType && (state.facts.germanDocType!=="otro"||state.facts.germanDocTypeOther);
       html+=navBtns(T("Siguiente","Next","Próximo"),!!docOk);
     } else if(f==="f_notes"){
-      html+=`<div class="q">${T("¿Algo más que quieras contarnos sobre tu caso? (opcional)","Anything else you'd like to tell us about your case? (optional)")}</div>
-        <div class="qhint">${T("Por ejemplo: historia familiar, datos que no preguntamos, si ya iniciaste algún trámite, o documentos relevantes que tengas.","For example: family history, details we didn't ask, whether you've already started any procedure, or relevant documents you have.")}</div>
-        <div class="field"><textarea rows="5" oninput="state.facts.notes=this.value" placeholder="${T("Escribe aquí…","Write here…")}">${esc(state.facts.notes||"")}</textarea></div>`;
-      html+=navBtns(T("Ver mi resultado","See my result"),true);
+      html+=`<div class="q">${T("¿Algo más que quieras contarnos sobre tu caso? (opcional)","Anything else you'd like to tell us about your case? (optional)","Algo mais que queira nos contar sobre seu caso? (opcional)")}</div>
+        <div class="qhint">${T("Por ejemplo: historia familiar, datos que no preguntamos, si ya iniciaste algún trámite, o documentos relevantes que tengas.","For example: family history, details we didn't ask, whether you've already started any procedure, or relevant documents you have.","Por exemplo: história familiar, dados que não perguntamos, se já iniciou algum processo, ou documentos relevantes que tenha.")}</div>
+        <div class="field"><textarea rows="5" oninput="state.facts.notes=this.value" placeholder="${T("Escribe aquí…","Write here…","Escreva aqui…")}">${esc(state.facts.notes||"")}</textarea></div>`;
+      html+=navBtns(T("Ver mi resultado","See my result","Ver meu resultado"),true);
     }
     app.innerHTML=html; return;
   }
@@ -575,17 +583,17 @@ function render(){
   if(s==="contact"){ setBar(12);
     if(!state.contact.phone) state.contact.phone="+569";
     const c=state.contact;
-    app.innerHTML=`<div class="step-label">${T("Tu contacto","Your contact")}</div>
-      <div class="q">${T("¿A dónde te enviamos tu evaluación?","Where shall we send your assessment?")}</div>
-      <div class="qhint">${T("Déjanos tu correo y, al terminar el test, te enviamos tu resultado y los próximos pasos para tu caso.","Leave your email and, when you finish, we'll send your result and the next steps for your case.")}</div>
+    app.innerHTML=`<div class="step-label">${T("Tu contacto","Your contact","Seu contato")}</div>
+      <div class="q">${T("¿A dónde te enviamos tu evaluación?","Where shall we send your assessment?","Onde enviamos sua avaliação?")}</div>
+      <div class="qhint">${T("Déjanos tu correo y, al terminar el test, te enviamos tu resultado y los próximos pasos para tu caso.","Leave your email and, when you finish, we'll send your result and the next steps for your case.","Deixe seu e-mail e, ao terminar o teste, enviamos seu resultado e os próximos passos para o seu caso.")}</div>
       <div class="field"><label>Email</label><input type="email" value="${esc(c.email||"")}" oninput="state.contact.email=this.value;chk()"></div>
-      <div class="field"><label>${T("Teléfono / WhatsApp (con código de país)","Phone / WhatsApp (with country code)")}</label><input type="tel" inputmode="tel" value="${esc(c.phone||"")}" oninput="state.contact.phone=this.value.replace(/\s+/g,'');this.value=state.contact.phone;chk()" placeholder="+56912345678"></div>
+      <div class="field"><label>${T("Teléfono / WhatsApp (con código de país)","Phone / WhatsApp (with country code)","Telefone / WhatsApp (com código do país)")}</label><input type="tel" inputmode="tel" value="${esc(c.phone||"")}" oninput="state.contact.phone=this.value.replace(/\s+/g,'');this.value=state.contact.phone;chk()" placeholder="+56912345678"></div>
       <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:8px;cursor:pointer">
         <input type="checkbox" style="width:auto;margin-top:3px" ${c.consent?"checked":""} onchange="state.contact.consent=this.checked;chk()">
-        <span>${T("Autorizo el tratamiento de mis datos personales para evaluar mi caso y ser contactado/a, conforme a la Ley 19.628 (Chile) y al RGPD (UE). Puedo solicitar acceder a ellos o eliminarlos en cualquier momento.","I authorize the processing of my personal data to assess my case and be contacted, under Law 19.628 (Chile) and the GDPR (EU). I can request access to or deletion of my data at any time.")}</span>
+        <span>${T("Autorizo el tratamiento de mis datos personales para evaluar mi caso y ser contactado/a, conforme a la Ley 19.628 (Chile) y al RGPD (UE). Puedo solicitar acceder a ellos o eliminarlos en cualquier momento.","I authorize the processing of my personal data to assess my case and be contacted, under Law 19.628 (Chile) and the GDPR (EU). I can request access to or deletion of my data at any time.","Autorizo o tratamento dos meus dados pessoais para avaliar meu caso e ser contatado/a, conforme a Lei 19.628 (Chile) e o RGPD (UE). Posso solicitar acesso a eles ou sua eliminação a qualquer momento.")}</span>
       </label>
       ${CONFIG.TURNSTILE_SITEKEY?`<div id="cf" style="margin-top:12px"></div>`:""}
-      ${navBtns(T("Continuar","Continue"),contactOk())}`;
+      ${navBtns(T("Continuar","Continue","Continuar"),contactOk())}`;
     mountCaptcha();
     return;
   }
@@ -597,7 +605,8 @@ function genLabel(depth, rel){
   const f = rel==="madre";
   const es=["", f?"Madre":"Padre", f?"Abuela":"Abuelo", f?"Bisabuela":"Bisabuelo", f?"Tatarabuela":"Tatarabuelo"];
   const en=["", f?"Mother":"Father", f?"Grandmother":"Grandfather", f?"Great-grandmother":"Great-grandfather", f?"2×-great-gm":"2×-great-gf"];
-  return depth<es.length ? T(es[depth],en[depth]) : T("Ancestro/a","Ancestor");
+  const pt=["", f?"Mãe":"Pai", f?"Avó":"Avô", f?"Bisavó":"Bisavô", f?"Trisavó":"Trisavô"];
+  return depth<es.length ? T(es[depth],en[depth],pt[depth]) : T("Ancestro/a","Ancestor","Antepassado/a");
 }
 function familyTree(mark){
   if(!state.applicant.name && !state.chain.length) return "";
@@ -607,16 +616,16 @@ function familyTree(mark){
     const p=row.p, isDE=isGerman(p);
     const isMark = mark && p.name && p.name===mark.person;
     const cls = isMark ? (mark.type==="legit"?"warn":"brk") : (isDE?"de":"");
-    const gen = idx===0 ? T("Tú","You") : genLabel(idx,row.rel);
+    const gen = idx===0 ? T("Tú","You","Você") : genLabel(idx,row.rel);
     const meta=[p.birthYear,p.country].filter(Boolean).join(" · ");
     let pill="";
     if(isMark){
-      const txt = mark.type==="loss"?T("posible pérdida aquí","possible loss here"):(mark.type==="legit"?T("a revisar (legitimación)","review (legitimation)"):T("la línea se corta aquí","line breaks here"));
+      const txt = mark.type==="loss"?T("posible pérdida aquí","possible loss here","possível perda aqui"):(mark.type==="legit"?T("a revisar (legitimación)","review (legitimation)","a revisar (legitimação)"):T("la línea se corta aquí","line breaks here","a linha é interrompida aqui"));
       pill=`<span class="pill" style="background:${mark.type==="legit"?"var(--amber)":"var(--red)"}">⚠ ${txt}</span>`;
     } else if(isDE){
-      pill=`<span class="pill" style="background:var(--green)">🇩🇪 ${T("raíz alemana","German root")}</span>`;
+      pill=`<span class="pill" style="background:var(--green)">🇩🇪 ${T("raíz alemana","German root","raiz alemã")}</span>`;
     }
-    h+=`<div class="tnode ${cls}"><div class="gen">${gen}</div><div class="body"><div class="nm">${esc(p.name||T("(sin nombre)","(no name)"))}</div>${meta?`<div class="mt">${esc(meta)}</div>`:""}${pill}</div></div>`;
+    h+=`<div class="tnode ${cls}"><div class="gen">${gen}</div><div class="body"><div class="nm">${esc(p.name||T("(sin nombre)","(no name)","(sem nome)"))}</div>${meta?`<div class="mt">${esc(meta)}</div>`:""}${pill}</div></div>`;
     if(idx<rows.length-1) h+=`<div class="tconn ${isMark&&mark.type!=="legit"?"cut":""}"></div>`;
   });
   h+=`</div>`; return h;
@@ -710,29 +719,29 @@ function renderResult(){
     : vias.some(v=>v.state==="DUDOSO")?"DUDOSO"
     : vias.some(v=>v.state==="POCO")?"POCO":"INFO";
   const OV={
-    VIABLE:["g","🟢",T("Altamente posible","Highly possible"),T("Según tus respuestas, tu caso tiene buenas bases para obtener la nacionalidad alemana. El siguiente paso es revisarlo en detalle y reunir la documentación.","Based on your answers, your case has solid grounds to obtain German citizenship. The next step is a detailed review and gathering the documents.")],
-    DUDOSO:["a","🟡",T("Posible","Possible"),T("Tu caso es posible, pero hay puntos que conviene confirmar con una revisión profesional.","Your case is possible, but some points should be confirmed with a professional review.")],
-    POCO:["r","🔴",T("Por ahora no calificas","Not eligible for now"),T("Según la normativa alemana vigente, por ahora tu caso no calificaría para obtener la nacionalidad por las vías que evaluamos.","Under current German law, your case would not qualify for citizenship through the routes we assessed for now.")],
-    INFO:["b","🔵",T("Necesitamos más información","More information needed"),T("Para evaluarte mejor necesitamos algunos datos más. Reúne los antecedentes de abajo y podremos orientarte.","To assess you better we need a bit more data. Gather the items below and we'll be able to guide you.")]
+    VIABLE:["g","🟢",T("Altamente posible","Highly possible","Muito provável"),T("Según tus respuestas, tu caso tiene buenas bases para obtener la nacionalidad alemana. El siguiente paso es revisarlo en detalle y reunir la documentación.","Based on your answers, your case has solid grounds to obtain German citizenship. The next step is a detailed review and gathering the documents.","Com base nas suas respostas, seu caso tem boas bases para obter a nacionalidade alemã. O próximo passo é revisá-lo em detalhe e reunir a documentação.")],
+    DUDOSO:["a","🟡",T("Posible","Possible","Possível"),T("Tu caso es posible, pero hay puntos que conviene confirmar con una revisión profesional.","Your case is possible, but some points should be confirmed with a professional review.","Seu caso é possível, mas há pontos que convém confirmar com uma revisão profissional.")],
+    POCO:["r","🔴",T("Por ahora no calificas","Not eligible for now","Por enquanto não elegível"),T("Según la normativa alemana vigente, por ahora tu caso no calificaría para obtener la nacionalidad por las vías que evaluamos.","Under current German law, your case would not qualify for citizenship through the routes we assessed for now.","Conforme a legislação alemã vigente, por enquanto seu caso não se qualificaria para obter a nacionalidade pelas vias que avaliamos.")],
+    INFO:["b","🔵",T("Necesitamos más información","More information needed","Precisamos de mais informações"),T("Para evaluarte mejor necesitamos algunos datos más. Reúne los antecedentes de abajo y podremos orientarte.","To assess you better we need a bit more data. Gather the items below and we'll be able to guide you.","Para avaliar melhor precisamos de mais alguns dados. Reúna os antecedentes abaixo e poderemos orientá-lo/a.")]
   };
   const ov=OV[overall];
 
-  let html=`<h1>${T("Tu evaluación preliminar","Your preliminary assessment")}</h1>`;
+  let html=`<h1>${T("Tu evaluación preliminar","Your preliminary assessment","Sua avaliação preliminar")}</h1>`;
   html+=`<div class="res ${ov[0]}" style="text-align:center;padding:20px 18px;margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.85">${T("Resultado preliminar","Preliminary result")}</div>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.85">${T("Resultado preliminar","Preliminary result","Resultado preliminar")}</div>
       <div style="font-size:23px;font-weight:800;margin:6px 0">${ov[1]} ${ov[2]}</div>
       <div style="font-size:14.5px">${ov[3]}</div>
     </div>`;
-  html+=`<div class="step-label">${T("Tu árbol","Your tree")}</div>`+renderTreeWithBreak(vias);
+  html+=`<div class="step-label">${T("Tu árbol","Your tree","Sua árvore")}</div>`+renderTreeWithBreak(vias);
 
   if(checklist.length){
-    html+=`<div class="step-label" style="margin-top:18px">${T("Para avanzar, conviene reunir","To move forward, gather")}</div>
+    html+=`<div class="step-label" style="margin-top:18px">${T("Para avanzar, conviene reunir","To move forward, gather","Para avançar, reúna")}</div>
       <ul class="docs">`+checklist.map(x=>`<li>${esc(x)}</li>`).join("")+`</ul>`;
   }
-  if(state.bothNoted) html+=`<div class="res b" style="margin-top:8px"><span class="badge">${T("Otra rama","Other branch")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una; puedes repetir el test para la otra.","You indicated German roots on both sides. This evaluated one; you can retake the test for the other.")}</p></div>`;
+  if(state.bothNoted) html+=`<div class="res b" style="margin-top:8px"><span class="badge">${T("Otra rama","Other branch","Outro ramo")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una; puedes repetir el test para la otra.","You indicated German roots on both sides. This evaluated one; you can retake the test for the other.","Você indicou raízes alemãs dos dois lados. Aqui avaliamos uma; você pode repetir o teste para a outra.")}</p></div>`;
   const closing = overall==="POCO"
-    ? T("Guardamos tu contacto. Si la legislación alemana cambia y tu caso pasa a ser elegible, te avisaremos.","We'll keep your contact. If German law changes and your case becomes eligible, we'll let you know.")
-    : T("Te contactaremos con un análisis más detallado y los próximos pasos para tu caso.","We'll contact you with a more detailed analysis and the next steps for your case.");
+    ? T("Guardamos tu contacto. Si la legislación alemana cambia y tu caso pasa a ser elegible, te avisaremos.","We'll keep your contact. If German law changes and your case becomes eligible, we'll let you know.","Guardamos seu contato. Se a legislação alemã mudar e seu caso se tornar elegível, avisaremos.")
+    : T("Te contactaremos con un análisis más detallado y los próximos pasos para tu caso.","We'll contact you with a more detailed analysis and the next steps for your case.","Entraremos em contato com uma análise mais detalhada e os próximos passos para o seu caso.");
   html+=`<p class="lead" style="margin-top:16px">${closing}</p>`;
   html+=`<p class="savednote" id="saved"></p>`;
   document.getElementById("app").innerHTML=html; pushLead("completo", vias, checklist);
@@ -803,7 +812,8 @@ function advance(){
 
 function setLang(l){ LANG=l; document.documentElement.lang=l;
   document.getElementById("es").classList.toggle("on",l==="es");
-  document.getElementById("en").classList.toggle("on",l==="en"); render(); }
+  document.getElementById("en").classList.toggle("on",l==="en");
+  document.getElementById("pt").classList.toggle("on",l==="pt"); render(); }
 
 function mountCaptcha(tries){
   tries=tries||0;
@@ -838,7 +848,7 @@ async function pushLead(status, vias, checklist){
     phone:(phoneDigits(state.contact.phone).length>=8 ? cleanPhone(state.contact.phone) : null),
     answers, verdict};
   const note=document.getElementById("saved");
-  const ok=()=>{ if(note) note.textContent=T("✓ Registro guardado","✓ Submission saved"); };
+  const ok=()=>{ if(note) note.textContent=T("✓ Registro guardado","✓ Submission saved","✓ Registro salvo"); };
   // 1) vía servidor (verifica captcha e inserta con clave de servidor)
   try{
     const r=await fetch("/api/lead",{method:"POST", keepalive:true, headers:{"Content-Type":"application/json"},
@@ -850,12 +860,12 @@ async function pushLead(status, vias, checklist){
     try{ const r=await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/leads`,{method:"POST", keepalive:true,
         headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON_KEY,"Authorization":`Bearer ${CONFIG.SUPABASE_ANON_KEY}`,"Prefer":"return=minimal"},
         body:JSON.stringify(body)});
-      if(note) note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved"):T("No se pudo guardar.","Could not save."); return; }
+      if(note) note.textContent=r.ok?T("✓ Registro guardado","✓ Submission saved","✓ Registro salvo"):T("No se pudo guardar.","Could not save.","Não foi possível salvar."); return; }
     catch(e){}
   }
   // 3) demo local
   const all=JSON.parse(localStorage.getItem("leads")||"[]"); all.push(body); localStorage.setItem("leads",JSON.stringify(all));
-  if(note) note.textContent=T("Modo demo: guardado en este navegador.","Demo mode: saved in this browser.");
+  if(note) note.textContent=T("Modo demo: guardado en este navegador.","Demo mode: saved in this browser.","Modo demo: salvo neste navegador.");
 }
 function savePartial(){ if(state.partialSaved) return; state.partialSaved=true; pushLead("parcial", [], []); }
 
