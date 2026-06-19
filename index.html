@@ -623,6 +623,44 @@ function buildConsularDrafts(vias){
   return {es:build("es"), en:build("en"), pt:build("pt")};
 }
 
+// Documentación sugerida a adjuntar (y dónde buscarla), según el caso. Para la asesora; en español.
+function buildDocSuggestions(facts, chain, verdict){
+  facts=facts||{}; chain=chain||[]; verdict=verdict||[]; const items=[];
+  items.push("Partidas de nacimiento de cada persona de la línea, del solicitante hasta el antepasado alemán — Registro Civil del país de cada nacimiento.");
+  items.push("Actas de matrimonio de los eslabones de la línea — Registro Civil correspondiente.");
+  items.push("Prueba de la nacionalidad alemana del antepasado: pasaporte alemán, certificado de nacionalidad (Staatsangehörigkeitsausweis) o su partida de nacimiento alemana — documentos familiares o el registro civil (Standesamt) del lugar de nacimiento en Alemania.");
+  if(facts.persecution==="si"){
+    items.push("Prueba de la persecución nazi y/o de la pérdida de la nacionalidad: expedientes de reparación (Wiedergutmachung), registros de los Arolsen Archives (arolsen-archives.org), base de víctimas de Yad Vashem (yadvashem.org), o la inscripción en las listas de pérdida de nacionalidad de 1941 — búsqueda gratuita en esos sitios y en el Bundesarchiv.");
+    items.push("Documentos que acrediten la condición de perseguido del antepasado (registros de la comunidad judía, pasaporte con sello «J», papeles de salida o emigración forzada).");
+  }
+  if(["pre1904","1904_1913","ns"].includes(facts.emigYear)){
+    items.push("Inscripción consular del antepasado (Matrikel) o su registro de pasaportes (Passregister) del consulado donde se asentó — buscable gratis online en «invenio», del Politisches Archiv des Auswärtigen Amts (politisches-archiv.diplo.de/invenio → grupo AB 2, por país y consulado).");
+    items.push("Registro de emigración con fecha (listas de pasajeros de los puertos de Hamburgo o Bremen) — archivos portuarios alemanes o portales de genealogía (FamilySearch, Ancestry).");
+  }
+  if(verdict.some(v=>v.via==="C" && /declaraci|discrimin/i.test(v.name||""))){
+    items.push("Prueba de la nacionalidad alemana de la persona por quien venía la transmisión (la madre/abuela alemana, o el padre alemán) y la partida de nacimiento que muestre esa filiación — Registro Civil del lugar.");
+  }
+  if(facts.marriageloss==="si"){
+    items.push("Acta de matrimonio de la mujer alemana con el extranjero (con fecha) y prueba de su nacionalidad alemana — Registro Civil.");
+  }
+  if(facts.natz25==="si_apeticion" || facts.natz25==="noeu_apeticion" || ["usa","otro"].includes(facts.natz1914)){
+    items.push("Certificado de naturalización del antepasado en el país de destino, con la fecha exacta (o constancia de que NO se naturalizó) — Archivo Nacional o registro de cartas de nacionalidad del país.");
+  }
+  if(facts.adoption==="si"){
+    items.push("Sentencia o acta de adopción, con la fecha y la edad del adoptado en ese momento — tribunal de familia o Registro Civil.");
+  }
+  if(facts.namechange==="si"){
+    items.push("Documentos que acrediten la continuidad del apellido/identidad (actas con ambos apellidos, sentencias de cambio de nombre) para vincular a la misma persona.");
+  }
+  if(chain.some(p=>p && p.germanCitizen==="si" && p.country && !/alemania|germany|deutschland/i.test(p.country))){
+    items.push("Documentos que acrediten que el lugar de nacimiento del antepasado pertenecía a Alemania en esa época y que poseía la ciudadanía alemana (partidas, censos, pasaporte).");
+  }
+  if(facts.relative==="si"){
+    items.push("Copia del certificado de nacionalidad alemana o del expediente del familiar que ya la obtuvo por el mismo antepasado — solicítalo a ese familiar.");
+  }
+  return items;
+}
+
 function renderResult(){
   const {vias,investigate}=analyze();
   const infoGaps=vias.filter(v=>v.state==="INFO").flatMap(v=>v.gaps||[]);
@@ -748,7 +786,10 @@ function contactOk(){ const c=state.contact;
 async function pushLead(status, vias, checklist){
   const created=new Date().toISOString();
   const answers={applicant:state.applicant, chain:state.chain, facts:state.facts, investigate:checklist||[], consent:state.contact.consent===true, consent_at:created};
-  if(status==="completo") answers.consular_draft=buildConsularDrafts(vias||[]);
+  if(status==="completo"){
+    answers.consular_draft=buildConsularDrafts(vias||[]);
+    answers.doc_suggestions=buildDocSuggestions(state.facts||{}, state.chain||[], vias||[]);
+  }
   const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null,legal:v.legal||null}));
   const body={session_id:state.sessionId, status, lang:LANG,
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null,

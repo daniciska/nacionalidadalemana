@@ -99,6 +99,15 @@ module.exports = async (req, res) => {
        </div>`
     : "";
 
+  const docItems = Array.isArray(ans.doc_suggestions) ? ans.doc_suggestions : [];
+  const docHtml = docItems.length
+    ? `<div style="margin-top:22px;border:1px solid #d1fae5;background:#f0fdf4;border-radius:12px;padding:14px 16px">
+         <h3 style="font-size:14px;margin:0 0 8px;color:#065f46">📎 Documentación a adjuntar al borrador</h3>
+         <ul style="margin:0;padding-left:18px;color:#134e4a;font-size:13px">${docItems.map(x=>`<li style="margin-bottom:5px">${esc(x)}</li>`).join("")}</ul>
+         <p style="font-size:11.5px;color:#6b7280;margin:8px 0 0">Sugerencia orientativa — verificar disponibilidad según cada caso.</p>
+       </div>`
+    : "";
+
   let draftHtml = "";
   if (ans.consular_draft) {
     const cd = typeof ans.consular_draft === "string" ? { es: ans.consular_draft } : ans.consular_draft;
@@ -128,6 +137,7 @@ module.exports = async (req, res) => {
       ${invList}
       ${notesHtml}
       ${legalSection}
+      ${docHtml}
       ${draftHtml}
 
       <p style="color:#94a3b8;font-size:11.5px;margin-top:22px;border-top:1px solid #e2e8f0;padding-top:12px">
