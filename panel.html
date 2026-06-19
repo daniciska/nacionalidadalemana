@@ -185,7 +185,7 @@ function detail(id){
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${(a.facts&&a.facts.notes)?`<h3>Nota del solicitante</h3><div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.facts.notes)}</div>`:""}
     ${(()=>{ const li=v.filter(x=>x.legal); return li.length?`<h3>⚖️ Análisis técnico (uso interno)</h3><div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:11px 13px">${li.map(x=>`<div style="margin-bottom:9px"><div style="font-weight:700;font-size:13px">${esc(x.name||x.via)} — ${esc((ST[x.state]||["","?"])[1])}</div><div style="font-size:13px;color:#334155">${esc(x.legal)}</div></div>`).join("")}</div>`:""; })()}
-    ${(()=>{ let cd=a.consular_draft; if(!cd) return ""; if(typeof cd==="string") cd={es:cd};
+    ${(()=>{ let cd=a.consular_draft||buildDraftFromData(a,v); if(!cd) return ""; if(typeof cd==="string") cd={es:cd};
       const NM={es:"Español",en:"English",pt:"Português"}; const ls=Object.keys(cd);
       return `<h3>✉️ Borrador para el Consulado</h3>
         <div style="display:flex;gap:6px;margin-bottom:8px">${ls.map((l,i)=>`<span class="chip ${i===0?'on':''}" onclick="draftTab(this,'dft_${l}')">${NM[l]||l}</span>`).join("")}</div>
@@ -204,6 +204,43 @@ function draftTab(btn,id){ const sheet=btn.closest(".sheet"); if(!sheet) return;
   sheet.querySelectorAll(".dtab").forEach(d=>d.style.display="none"); document.getElementById(id).style.display="block";
   btn.parentElement.querySelectorAll(".chip").forEach(c=>c.classList.remove("on")); btn.classList.add("on"); }
 function copyEl(btn){ const box=btn.previousElementSibling; if(!box) return; navigator.clipboard.writeText(box.innerText).then(()=>{ btn.textContent="✓ Copiado"; }); }
+
+// Genera el borrador al vuelo desde los datos guardados (para leads antiguos sin borrador)
+function germanAncOf(chain){ const r=[...(chain||[])].reverse().find(isGerman); return r || (chain&&chain.length?chain[chain.length-1]:null); }
+function buildDraftFromData(a, v){
+  const ap=a.applicant||{}, chain=a.chain||[], facts=a.facts||{}, G=germanAncOf(chain);
+  const ok=k=>(v||[]).some(x=>x.via===k && (x.state==="VIABLE"||x.state==="DUDOSO"));
+  const route=ok("B")?"B":ok("C")?"C":ok("A")?"A":"X";
+  const esAlemania=G&&/alemania|germany|deutschland/i.test(G.country||"");
+  const D={
+    es:{abbr:"n.",subject:"Asunto: Consulta sobre posible nacionalidad alemana por ascendencia",greet:"Estimados señores del Consulado/Embajada de Alemania:",
+      intro:(n,c,y)=>`Mi nombre es ${n}, nacido/a en ${c}${y?" en "+y:""}.`,quisiera:"Quisiera consultar",
+      q:{B:"si tendría derecho a recuperar la nacionalidad alemana por restitución (Art. 116(2) de la Ley Fundamental o §15 de la Ley de Nacionalidad), dado que mi antepasado fue perseguido por el régimen nazi",C:"si podría adquirir la nacionalidad alemana mediante la declaración del §5 de la Ley de Nacionalidad (corrección de la discriminación histórica en la transmisión)",A:"si podría determinarse mi nacionalidad alemana por descendencia (§4 de la Ley de Nacionalidad) a través de mi antepasado alemán",X:"si tengo algún derecho a la nacionalidad alemana a través de mi línea de ascendencia, y qué requisitos o documentos serían necesarios"},
+      lineaH:"Mi línea de ascendencia es la siguiente:",childOf:"  ←  hijo/a de  ",
+      anc:(name,y,emig)=>`Mi antepasado alemán, ${name}, ${esAlemania?"nació en Alemania":"era de origen alemán"}${y?" en "+y:""} y ${emig}.`,
+      emig:{pre1904:"emigró de Alemania antes de ~1904",1904_1913:"emigró de Alemania entre 1904 y 1913",1914_1932:"emigró de Alemania entre 1914 y 1932",nazi_era:"emigró de Alemania entre 1933 y 1945",post1945:"emigró de Alemania después de 1945",no_emig:"no emigró de Alemania",ns:"emigró de Alemania en una fecha por confirmar"},
+      req:"Agradecería que me indicaran si mi caso podría calificar y, en tal caso, cómo iniciar el procedimiento de determinación de la nacionalidad alemana (Feststellung der deutschen Staatsangehörigkeit) y qué documentos debo presentar.",close:"Quedo atento/a a su respuesta. Muchas gracias.",sign:"Atentamente,",contact:"[correo / teléfono]"},
+    en:{abbr:"b.",subject:"Subject: Inquiry about possible German citizenship by descent",greet:"Dear Sir or Madam at the German Consulate/Embassy,",
+      intro:(n,c,y)=>`My name is ${n}, born in ${c}${y?" in "+y:""}.`,quisiera:"I would like to inquire",
+      q:{B:"whether I would be entitled to reclaim German citizenship through restitution (Art. 116(2) of the Basic Law or §15 of the Nationality Act), as my ancestor was persecuted by the Nazi regime",C:"whether I could acquire German citizenship through the declaration under §5 of the Nationality Act (correction of historical discrimination in transmission)",A:"whether my German citizenship could be established by descent (§4 of the Nationality Act) through my German ancestor",X:"whether I have any claim to German citizenship through my line of descent, and what requirements or documents would be needed"},
+      lineaH:"My line of descent is as follows:",childOf:"  ←  child of  ",
+      anc:(name,y,emig)=>`My German ancestor, ${name}, ${esAlemania?"was born in Germany":"was of German origin"}${y?" in "+y:""} and ${emig}.`,
+      emig:{pre1904:"emigrated from Germany before ~1904",1904_1913:"emigrated from Germany between 1904 and 1913",1914_1932:"emigrated from Germany between 1914 and 1932",nazi_era:"emigrated from Germany between 1933 and 1945",post1945:"emigrated from Germany after 1945",no_emig:"did not emigrate from Germany",ns:"emigrated from Germany on a date to be confirmed"},
+      req:"I would be grateful if you could tell me whether my case might qualify and, if so, how to begin the determination of German citizenship (Feststellung der deutschen Staatsangehörigkeit) and which documents I must submit.",close:"I look forward to your reply. Thank you very much.",sign:"Sincerely,",contact:"[email / phone]"},
+    pt:{abbr:"n.",subject:"Assunto: Consulta sobre possível nacionalidade alemã por ascendência",greet:"Prezados senhores do Consulado/Embaixada da Alemanha,",
+      intro:(n,c,y)=>`Meu nome é ${n}, nascido(a) em ${c}${y?" em "+y:""}.`,quisiera:"Gostaria de consultar",
+      q:{B:"se eu teria direito a recuperar a nacionalidade alemã por restituição (Art. 116(2) da Lei Fundamental ou §15 da Lei de Nacionalidade), uma vez que meu antepassado foi perseguido pelo regime nazista",C:"se eu poderia adquirir a nacionalidade alemã por meio da declaração do §5 da Lei de Nacionalidade (correção da discriminação histórica na transmissão)",A:"se a minha nacionalidade alemã poderia ser determinada por descendência (§4 da Lei de Nacionalidade) através do meu antepassado alemão",X:"se tenho algum direito à nacionalidade alemã através da minha linha de ascendência, e quais requisitos ou documentos seriam necessários"},
+      lineaH:"Minha linha de ascendência é a seguinte:",childOf:"  ←  filho(a) de  ",
+      anc:(name,y,emig)=>`Meu antepassado alemão, ${name}, ${esAlemania?"nasceu na Alemanha":"era de origem alemã"}${y?" em "+y:""} e ${emig}.`,
+      emig:{pre1904:"emigrou da Alemanha antes de ~1904",1904_1913:"emigrou da Alemanha entre 1904 e 1913",1914_1932:"emigrou da Alemanha entre 1914 e 1932",nazi_era:"emigrou da Alemanha entre 1933 e 1945",post1945:"emigrou da Alemanha depois de 1945",no_emig:"não emigrou da Alemanha",ns:"emigrou da Alemanha em data a confirmar"},
+      req:"Agradeceria que me informassem se o meu caso poderia se qualificar e, em caso afirmativo, como iniciar o procedimento de determinação da nacionalidade alemã (Feststellung der deutschen Staatsangehörigkeit) e quais documentos devo apresentar.",close:"Fico no aguardo de sua resposta. Muito obrigado(a).",sign:"Atenciosamente,",contact:"[e-mail / telefone]"}
+  };
+  function build(L){ const d=D[L];
+    const linea=[ap].concat(chain).map(p=>`${p.name||"(?)"}${p.birthYear?` (${d.abbr} ${p.birthYear}${p.country?", "+p.country:""})`:(p.country?` (${p.country})`:"")}`).join(d.childOf);
+    return `${d.subject}\n\n${d.greet}\n\n${d.intro(ap.name||"[—]",ap.country||"[—]",ap.birthYear||"")} ${d.quisiera} ${d.q[route]}.\n\n${d.lineaH}\n${linea}.\n\n${d.anc(G?G.name:"[—]",G&&G.birthYear?G.birthYear:"",d.emig[facts.emigYear]||d.emig.ns)}\n\n${d.req}\n\n${d.close}\n\n${d.sign}\n${ap.name||"[—]"}\n${d.contact}`;
+  }
+  return {es:build("es"),en:build("en"),pt:build("pt")};
+}
 function setF(f){ FILTER=f; render(); }
 function logout(){ PW=""; sessionStorage.removeItem("panel_pw"); render(); }
 async function doLogin(){
