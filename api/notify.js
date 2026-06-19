@@ -145,15 +145,94 @@ module.exports = async (req, res) => {
       </p>
     </div>`;
 
+  const FROM_LABEL = `Raíces Europeas - Nacionalidad Alemana <${FROM}>`;
+
+  // Email a la asesora
+  let ownerOk = false;
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: `Nacionalidad Alemana <${FROM}>`, to: [OWNER_EMAIL], subject: `Nuevo lead: ${name} — ${top}`, html })
+      body: JSON.stringify({ from: FROM_LABEL, to: [OWNER_EMAIL], subject: `Nuevo lead: ${name} — ${top}`, html })
     });
-    const detail = await r.text();
-    return res.status(r.ok ? 200 : 502).json({ ok: r.ok, resend: r.ok ? "sent" : detail });
+    ownerOk = r.ok;
+    if (!r.ok) { const d = await r.text(); return res.status(502).json({ ok: false, resend: d }); }
   } catch (e) {
     return res.status(500).json({ error: String(e) });
   }
+
+  // Email al cliente (la misma información que ve en pantalla)
+  if (rec.email && rec.email !== "—") {
+    const L = rec.lang || "es";
+    const Tx = (es, en, pt) => L === "en" ? en : L === "pt" ? (pt || es) : es;
+    const overall = verdict.some(v => v.state === "VIABLE") ? "VIABLE"
+      : verdict.some(v => v.state === "DUDOSO") ? "DUDOSO"
+      : verdict.some(v => v.state === "POCO") ? "POCO" : "INFO";
+    const OV = {
+      VIABLE: { color: "#15803d", bg: "#dcfce7", emoji: "🟢",
+        title: Tx("Altamente posible", "Highly possible", "Muito provável"),
+        desc:  Tx("Según tus respuestas, tu caso tiene buenas bases para avanzar con una consulta formal.", "Based on your answers, your case has solid grounds to move forward with a formal consultation.", "Com base nas suas respostas, o seu caso tem boas bases para avançar.") },
+      DUDOSO: { color: "#b45309", bg: "#fef3c7", emoji: "🟡",
+        title: Tx("Posible", "Possible", "Possível"),
+        desc:  Tx("Tu caso es posible, pero hay puntos que conviene confirmar antes de avanzar.", "Your case is possible, but some points should be confirmed before moving forward.", "O seu caso é possível, mas há pontos a confirmar antes de avançar.") },
+      POCO:   { color: "#b91c1c", bg: "#fee2e2", emoji: "🔴",
+        title: Tx("Por ahora no calificas", "Not eligible for now", "Por enquanto não elegível"),
+        desc:  Tx("Según la normativa alemana vigente, tu caso no calificaría por ahora. Si la legislación cambia, te avisaremos.", "Under current German law, your case would not qualify for now. If the law changes, we'll let you know.", "Segundo a legislação alemã vigente, o seu caso não se qualificaria por enquanto.") },
+      INFO:   { color: "#1d4ed8", bg: "#dbeafe", emoji: "🔵",
+        title: Tx("Necesitamos más información", "More information needed", "Precisamos de mais informações"),
+        desc:  Tx("Para evaluarte mejor necesitamos algunos datos adicionales. Nos pondremos en contacto contigo.", "To assess you better we need a bit more data. We'll reach out to you.", "Para avaliar melhor o seu caso, precisamos de mais dados. Entraremos em contato.") }
+    };
+    const ov = OV[overall];
+
+    const clientTreeRows = [{p: ans.applicant, rel: null}].concat((ans.chain || []).map(x => ({p: x, rel: x.rel})));
+    const clientTree = clientTreeRows.map((row, idx) => {
+      const p = row.p || {}; const isDE = isGermanC(p);
+      const bd = isDE ? "#15803d" : "#e2e8f0"; const bg = isDE ? "#dcfce7" : "#fff";
+      const tag = isDE ? `<span style="background:#15803d;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px">🇩🇪 ${Tx("raíz alemana","German root","raiz alemã")}</span>` : "";
+      const gen = idx === 0 ? Tx("Tú","You","Você") : genL(idx, row.rel);
+      const meta = [p.birthYear, p.country].filter(Boolean).join(" · ");
+      const conn = idx < clientTreeRows.length - 1 ? `<div style="width:2px;height:14px;background:#e2e8f0;margin-left:34px"></div>` : "";
+      return `<div style="display:flex;gap:12px;align-items:flex-start;border:1.5px solid ${bd};background:${bg};border-radius:12px;padding:9px 12px">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;min-width:66px;padding-top:2px">${esc(gen)}</div>
+          <div><div style="font-weight:700;font-size:14px">${esc(p.name || "(—)")}</div>${meta ? `<div style="color:#64748b;font-size:12px">${esc(meta)}</div>` : ""}${tag ? `<div style="margin-top:5px">${tag}</div>` : ""}</div>
+        </div>${conn}`;
+    }).join("");
+
+    const clientChecklist = investigate.length
+      ? `<h3 style="font-size:14px;margin:18px 0 6px">${Tx("Para avanzar, conviene reunir","To move forward, gather","Para avançar, convém reunir")}</h3>
+         <ul style="margin:0;padding-left:18px;color:#334155;font-size:13px">${investigate.map(x => `<li style="margin-bottom:4px">${esc(x)}</li>`).join("")}</ul>`
+      : "";
+
+    const closing = overall === "POCO"
+      ? Tx("Guardamos tu contacto. Si la legislación alemana cambia o encontramos una vía aplicable, te avisaremos.", "We'll keep your contact. If German law changes or we find an applicable route, we'll let you know.", "Guardamos o seu contato. Se a legislação alemã mudar, avisaremos.")
+      : Tx("Nos pondremos en contacto contigo para un análisis más detallado y personalizado.", "We'll contact you for a more detailed and personalized analysis.", "Entraremos em contato para uma análise mais detalhada e personalizada.");
+
+    const clientSubject = Tx(`Tu evaluación de nacionalidad alemana — ${ov.title}`, `Your German nationality assessment — ${ov.title}`, `Sua avaliação de nacionalidade alemã — ${ov.title}`);
+    const clientHtml = `
+      <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:580px;margin:0 auto;color:#1e293b">
+        <h2 style="margin:0 0 16px">🇩🇪 ${Tx("Tu evaluación preliminar","Your preliminary assessment","Sua avaliação preliminar")}</h2>
+        <div style="border:1.5px solid ${ov.color};background:${ov.bg};border-radius:14px;padding:20px 18px;text-align:center;margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${ov.color};opacity:.85">${Tx("Resultado preliminar","Preliminary result","Resultado preliminar")}</div>
+          <div style="font-size:22px;font-weight:800;margin:6px 0;color:${ov.color}">${ov.emoji} ${ov.title}</div>
+          <div style="font-size:14.5px;color:#334155">${ov.desc}</div>
+        </div>
+        <h3 style="font-size:14px;margin:0 0 8px">${Tx("Tu árbol familiar","Your family tree","Sua árvore familiar")}</h3>
+        <div style="display:flex;flex-direction:column;gap:0;margin-bottom:18px">${clientTree}</div>
+        ${clientChecklist}
+        <p style="font-size:14px;color:#334155;margin-top:20px">${closing}</p>
+        <p style="font-size:13px;color:#64748b;margin-top:4px">${Tx("Cualquier consulta, responde este correo.","Reply to this email with any questions.","Qualquer dúvida, responda este e-mail.")}</p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
+        <p style="font-size:11.5px;color:#94a3b8">Raíces Europeas · ${Tx("Evaluación orientativa, no constituye asesoría jurídica formal.","Preliminary assessment, not formal legal advice.","Avaliação orientativa, não constitui assessoria jurídica formal.")}</p>
+      </div>`;
+
+    try {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: FROM_LABEL, to: [rec.email], subject: clientSubject, html: clientHtml })
+      });
+    } catch (e) { /* no bloquear si falla el email al cliente */ }
+  }
+
+  return res.status(200).json({ ok: true, resend: "sent" });
 };

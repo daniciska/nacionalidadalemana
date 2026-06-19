@@ -152,6 +152,7 @@ function buildFactsQueue(){
   q.push("f_namechange");
   q.push("f_lives");
   q.push("f_relative");
+  q.push("f_hasgermandoc");
   q.push("f_notes");
   state.factsQueue=q; state.fIdx=0;
 }
@@ -167,6 +168,7 @@ function nextFact(){
   if(curFact()==="f_natz25_year" && state.facts.natz25_year==="antes"){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_permit"); }
   if(curFact()==="f_natz25_permit" && (state.facts.natz25_permit==="no"||state.facts.natz25_permit==="ns")){ state.factsQueue.splice(state.fIdx+1,0,"f_natz25_when"); }
   if(curFact()==="f_adoption" && state.facts.adoption==="si"){ state.factsQueue.splice(state.fIdx+1,0,"f_adoption_age"); }
+  if(curFact()==="f_hasgermandoc" && state.facts.hasGermanDoc==="si"){ state.factsQueue.splice(state.fIdx+1,0,"f_germandoctype"); }
   state.fIdx++;
   if(state.fIdx>=state.factsQueue.length){ go("result"); } else { go("facts"); }
 }
@@ -524,6 +526,24 @@ function render(){
         <div class="qhint">${T("Si alguien de tu familia ya lo logró por la misma línea, es una señal muy fuerte para tu caso.","If someone in your family already succeeded through the same line, it's a very strong signal for your case.")}</div>
         ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactRel",state.facts.relative)}`;
       html+=navBtns(T("Siguiente","Next"),!!state.facts.relative);
+    } else if(f==="f_hasgermandoc"){
+      html+=`<div class="q">${T("¿Cuentas con algún documento alemán del antepasado?","Do you have any German document from your ancestor?","Você possui algum documento alemão do seu antepassado?")}</div>
+        <div class="qhint">${T("Por ejemplo: partida de nacimiento alemana, pasaporte, registro de emigración, Matrikel, u otro documento oficial.","For example: German birth certificate, passport, emigration record, Matrikel, or other official document.","Por exemplo: certidão de nascimento alemã, passaporte, registro de emigração, Matrikel, ou outro documento oficial.")}</div>
+        ${chips("",[["si",T("Sí, tengo algún documento","Yes, I have a document","Sim, tenho algum documento")],["no",T("No","No","Não")],["ns",T("No sé / No estoy seguro/a","Not sure","Não sei")]],"pickHasGermanDoc",state.facts.hasGermanDoc)}`;
+      html+=navBtns(T("Siguiente","Next","Próximo"),!!state.facts.hasGermanDoc);
+    } else if(f==="f_germandoctype"){
+      html+=`<div class="q">${T("¿Qué tipo de documento tienes?","What type of document do you have?","Que tipo de documento você tem?")}</div>
+        ${chips("",[
+          ["acta_nac",T("Certificado de nacimiento alemán","German birth certificate","Certidão de nascimento alemã")],
+          ["doc_aleman",T("Algún otro documento alemán (sin especificar)","Some other German document","Algum outro documento alemão")],
+          ["prueba_emig",T("Prueba de emigración (pasaporte, lista de pasajeros, etc.)","Emigration proof (passport, passenger list, etc.)","Prova de emigração (passaporte, lista de passageiros, etc.)")],
+          ["otro",T("Otro","Other","Outro")]
+        ],"pickGermanDocType",state.facts.germanDocType)}`;
+      if(state.facts.germanDocType==="otro"){
+        html+=`<div class="field"><input type="text" placeholder="${T("Describe el documento…","Describe the document…","Descreva o documento…")}" value="${esc(state.facts.germanDocTypeOther||"")}" oninput="state.facts.germanDocTypeOther=this.value.trim();chk()"></div>`;
+      }
+      const docOk=state.facts.germanDocType && (state.facts.germanDocType!=="otro"||state.facts.germanDocTypeOther);
+      html+=navBtns(T("Siguiente","Next","Próximo"),!!docOk);
     } else if(f==="f_notes"){
       html+=`<div class="q">${T("¿Algo más que quieras contarnos sobre tu caso? (opcional)","Anything else you'd like to tell us about your case? (optional)")}</div>
         <div class="qhint">${T("Por ejemplo: historia familiar, datos que no preguntamos, si ya iniciaste algún trámite, o documentos relevantes que tengas.","For example: family history, details we didn't ask, whether you've already started any procedure, or relevant documents you have.")}</div>
@@ -737,6 +757,8 @@ function pickFactMil(v){ state.facts.mil28=v; render(); }
 function pickFactNc(v){ state.facts.namechange=v; render(); }
 function pickFactRel(v){ state.facts.relative=v; render(); }
 function pickFact5(v){ state.facts.lives=v; render(); }
+function pickHasGermanDoc(v){ state.facts.hasGermanDoc=v; if(v!=="si"){ state.facts.germanDocType=""; state.facts.germanDocTypeOther=""; } render(); }
+function pickGermanDocType(v){ state.facts.germanDocType=v; if(v!=="otro") state.facts.germanDocTypeOther=""; render(); }
 
 function advance(){
   const s=state.screen;
@@ -752,7 +774,8 @@ function advance(){
     render(); return;
   }
   if(s==="facts"){ const f=curFact();
-    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_eu:"natz25_eu",f_natz25_year:"natz25_year",f_natz25_permit:"natz25_permit",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_relative:"relative",f_lives:"lives"};
+    const okMap={f_emig:"emigYear",f_matrikel:"matrikel",f_natz1914:"natz1914",f_persecution:"persecution",f_natz25:"natz25",f_natz25_eu:"natz25_eu",f_natz25_year:"natz25_year",f_natz25_permit:"natz25_permit",f_natz25_when:"natz25_when",f_adoption:"adoption",f_adoption_age:"adoption_age",f_marriageloss:"marriageloss",f_mil28:"mil28",f_namechange:"namechange",f_relative:"relative",f_lives:"lives",f_hasgermandoc:"hasGermanDoc"};
+    if(f==="f_germandoctype"){ const ok=state.facts.germanDocType&&(state.facts.germanDocType!=="otro"||state.facts.germanDocTypeOther); if(!ok) return; nextFact(); return; }
     if(okMap[f] && !state.facts[okMap[f]]) return; nextFact(); return;
   }
   if(s==="contact"){ if(!((state.contact.email||state.contact.phone)&&state.contact.consent)) return; savePartial(); go("build_rel"); return; }
