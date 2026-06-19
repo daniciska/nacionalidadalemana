@@ -410,7 +410,7 @@ function render(){
       <div class="qhint">${T("Si nació en Alemania, ¡llegamos a tu raíz alemana!","If born in Germany, we've reached your German root!")}</div>
       ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`),
         [["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickWed",d.childInWedlock)}
-      ${(d.childInWedlock==="no"||d.childInWedlock==="ns") ? `<div class="field" style="margin-top:12px"><label>${T("¿En qué año se casaron sus padres? (si lo sabes, ayuda a precisar el caso)","In what year did their parents marry? (if known, it helps pin down the case)")}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional")}"></div>` : ""}
+      <div class="field" style="margin-top:12px"><label>${T("¿En qué año se casaron sus padres? (si lo sabes)","In what year did their parents marry? (if known)")}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional")}"></div>
       ${navBtns(T("Agregar y seguir","Add & continue"),!!(d.name&&d.childInWedlock))}`;
     return;
   }
@@ -437,8 +437,8 @@ function render(){
         ${chips("",[["si","Sí","Yes"],["no","No","No"],["ns","No sé","Not sure"]],"pickFactPers",state.facts.persecution)}`;
       if(state.facts.persecution==="si"||state.facts.persecution==="ns"){
         html+=`<div style="margin-top:6px">`+chips(T("¿Cómo afectó a su nacionalidad?","How did it affect their citizenship?"),
-          [["d116","Tenía la nacionalidad y se la retiraron","Held it and was stripped of it"],
-           ["d15","La perdió o nunca pudo adquirirla por la persecución","Lost it / never could acquire it"],
+          [["d116","Tenía la nacionalidad alemana y la perdió por una medida del régimen nazi","Held German citizenship and lost it through a Nazi-regime measure"],
+           ["d15","La perdió o nunca pudo adquirirla a causa de la persecución","Lost it or never could acquire it due to the persecution"],
            ["no","Ninguna de esas","Neither"],["ns","No sé","Not sure"]],"pickPersType",state.facts.persecution_type)+`</div>`;
       }
       html+=navBtns(T("Siguiente","Next"),!!state.facts.persecution);
