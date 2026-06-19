@@ -146,7 +146,8 @@ function buildFactsQueue(){
   q.push("f_persecution");
   q.push("f_natz25");
   q.push("f_adoption");
-  q.push("f_marriageloss");
+  // pérdida por matrimonio (§17): solo se pregunta si en algún eslabón el matrimonio quedó incierto
+  if(state.chain.some(function(p){ return p.childInWedlock==="ns" || (p.childInWedlock==="no" && !p.marriageYear); })) q.push("f_marriageloss");
   q.push("f_mil28");
   q.push("f_namechange");
   q.push("f_lives");
