@@ -597,28 +597,28 @@ function buildConsularDrafts(vias){
       lineaH:"Mi línea de ascendencia es la siguiente:",childOf:"  ←  hijo/a de  ",
       anc:(name,y,emig)=>`Mi antepasado alemán, ${name}, ${esAlemania?"nació en Alemania":"era de origen alemán"}${y?" en "+y:""} y ${emig}.`,
       emig:{pre1904:"emigró de Alemania antes de ~1904",1904_1913:"emigró de Alemania entre 1904 y 1913",1914_1932:"emigró de Alemania entre 1914 y 1932",nazi_era:"emigró de Alemania entre 1933 y 1945",post1945:"emigró de Alemania después de 1945",no_emig:"no emigró de Alemania",ns:"emigró de Alemania en una fecha por confirmar"},
-      req:"Agradecería que me indicaran si mi caso podría calificar y, en tal caso, cómo iniciar el procedimiento de determinación de la nacionalidad alemana y qué documentos debo presentar.",close:"Quedo atento/a a su respuesta.",gracias:"Muchas gracias."},
+      req:"Agradecería que me indicaran si mi caso podría calificar y, en tal caso, cómo iniciar el procedimiento de determinación de la nacionalidad alemana y qué documentos debo presentar.",close:"Quedo atento/a a su respuesta.",gracias:"Muchas gracias.",sign:"Atentamente,"},
     en:{abbr:"b.",subject:"Subject: Inquiry about possible German citizenship by descent",greet:"Dear Sir or Madam at the German Consulate,",
       intro:(n,c,y)=>`My name is ${n}, born in ${c}${y?" in "+y:""}.`,quisiera:"I would like to inquire",
       q:{B:"whether I would be entitled to reclaim German citizenship through restitution (Art. 116(2) of the Basic Law or §15 of the Nationality Act), as my ancestor was persecuted by the Nazi regime",C:"whether I could acquire German citizenship through the declaration under §5 of the Nationality Act (correction of historical discrimination in transmission)",A:"whether my German citizenship could be established by descent (§4 of the Nationality Act) through my German ancestor",X:"whether I have any claim to German citizenship through my line of descent, and what requirements or documents would be needed"},
       lineaH:"My line of descent is as follows:",childOf:"  ←  child of  ",
       anc:(name,y,emig)=>`My German ancestor, ${name}, ${esAlemania?"was born in Germany":"was of German origin"}${y?" in "+y:""} and ${emig}.`,
       emig:{pre1904:"emigrated from Germany before ~1904",1904_1913:"emigrated from Germany between 1904 and 1913",1914_1932:"emigrated from Germany between 1914 and 1932",nazi_era:"emigrated from Germany between 1933 and 1945",post1945:"emigrated from Germany after 1945",no_emig:"did not emigrate from Germany",ns:"emigrated from Germany on a date to be confirmed"},
-      req:"I would be grateful if you could let me know whether my case might qualify and, if so, how to begin the procedure to determine my German citizenship and which documents I must submit.",close:"I look forward to your reply.",gracias:"Thank you very much."},
+      req:"I would be grateful if you could let me know whether my case might qualify and, if so, how to begin the procedure to determine my German citizenship and which documents I must submit.",close:"I look forward to your reply.",gracias:"Thank you very much.",sign:"Sincerely,"},
     pt:{abbr:"n.",subject:"Assunto: Consulta sobre possível nacionalidade alemã por ascendência",greet:"Prezados senhores do Consulado da Alemanha,",
       intro:(n,c,y)=>`Meu nome é ${n}, nascido(a) em ${c}${y?" em "+y:""}.`,quisiera:"Gostaria de consultar",
       q:{B:"se eu teria direito a recuperar a nacionalidade alemã por restituição (Art. 116(2) da Lei Fundamental ou §15 da Lei de Nacionalidade), uma vez que meu antepassado foi perseguido pelo regime nazista",C:"se eu poderia adquirir a nacionalidade alemã por meio da declaração do §5 da Lei de Nacionalidade (correção da discriminação histórica na transmissão)",A:"se a minha nacionalidade alemã poderia ser determinada por descendência (§4 da Lei de Nacionalidade) através do meu antepassado alemão",X:"se tenho algum direito à nacionalidade alemã através da minha linha de ascendência, e quais requisitos ou documentos seriam necessários"},
       lineaH:"Minha linha de ascendência é a seguinte:",childOf:"  ←  filho(a) de  ",
       anc:(name,y,emig)=>`Meu antepassado alemão, ${name}, ${esAlemania?"nasceu na Alemanha":"era de origem alemã"}${y?" em "+y:""} e ${emig}.`,
       emig:{pre1904:"emigrou da Alemanha antes de ~1904",1904_1913:"emigrou da Alemanha entre 1904 e 1913",1914_1932:"emigrou da Alemanha entre 1914 e 1932",nazi_era:"emigrou da Alemanha entre 1933 e 1945",post1945:"emigrou da Alemanha depois de 1945",no_emig:"não emigrou da Alemanha",ns:"emigrou da Alemanha em data a confirmar"},
-      req:"Agradeceria que me informassem se o meu caso poderia se qualificar e, em tal caso, como iniciar o procedimento de determinação da nacionalidade alemã e quais documentos devo apresentar.",close:"Fico no aguardo de sua resposta.",gracias:"Muito obrigado(a)."}
+      req:"Agradeceria que me informassem se o meu caso poderia se qualificar e, em tal caso, como iniciar o procedimento de determinação da nacionalidade alemã e quais documentos devo apresentar.",close:"Fico no aguardo de sua resposta.",gracias:"Muito obrigado(a).",sign:"Atenciosamente,"}
   };
   function build(L){
     const d=D[L];
     const linea=[ap,...A.chain].map(p=>`${p.name||"(?)"}${p.birthYear?` (${d.abbr} ${p.birthYear}${p.country?", "+p.country:""})`:(p.country?` (${p.country})`:"")}`).join(d.childOf);
     return `${d.subject}\n\n${d.greet}\n\n${d.intro(ap.name||"[—]",ap.country||"[—]",ap.birthYear||"")} ${d.quisiera} ${d.q[route]}.\n\n`+
       `${d.lineaH}\n${linea}.\n\n${d.anc(G?G.name:"[—]",G&&G.birthYear?G.birthYear:"",d.emig[A.facts.emigYear]||d.emig.ns)}\n\n`+
-      `${d.req}\n\n${d.close}\n\n${d.gracias}`;
+      `${d.req}\n\n${d.close}\n\n${d.gracias}\n\n${d.sign}\n${ap.name||"[—]"}`;
   }
   return {es:build("es"), en:build("en"), pt:build("pt")};
 }
