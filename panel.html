@@ -185,7 +185,12 @@ function detail(id){
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${(a.facts&&a.facts.notes)?`<h3>Nota del solicitante</h3><div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.facts.notes)}</div>`:""}
     ${(()=>{ const li=v.filter(x=>x.legal); return li.length?`<h3>⚖️ Análisis técnico (uso interno)</h3><div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:11px 13px">${li.map(x=>`<div style="margin-bottom:9px"><div style="font-weight:700;font-size:13px">${esc(x.name||x.via)} — ${esc((ST[x.state]||["","?"])[1])}</div><div style="font-size:13px;color:#334155">${esc(x.legal)}</div></div>`).join("")}</div>`:""; })()}
-    ${a.consular_draft?`<h3>✉️ Borrador para el Consulado</h3><div id="draftBox" style="font-size:12.5px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.consular_draft)}</div><button class="btn" style="margin-top:8px" onclick="navigator.clipboard.writeText(document.getElementById('draftBox').innerText).then(()=>{this.textContent='✓ Copiado'})">Copiar borrador</button>`:""}
+    ${(()=>{ let cd=a.consular_draft; if(!cd) return ""; if(typeof cd==="string") cd={es:cd};
+      const NM={es:"Español",en:"English",pt:"Português"}; const ls=Object.keys(cd);
+      return `<h3>✉️ Borrador para el Consulado</h3>
+        <div style="display:flex;gap:6px;margin-bottom:8px">${ls.map((l,i)=>`<span class="chip ${i===0?'on':''}" onclick="draftTab(this,'dft_${l}')">${NM[l]||l}</span>`).join("")}</div>
+        ${ls.map((l,i)=>`<div id="dft_${l}" class="dtab" style="display:${i===0?'block':'none'}"><div style="font-size:12.5px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(cd[l])}</div><button class="btn" style="margin-top:8px" onclick="copyEl(this)">Copiar</button></div>`).join("")}`;
+    })()}
   </div>`;
   document.body.appendChild(m);
 }
@@ -195,6 +200,10 @@ async function del(id){
   if(!confirm("¿Borrar el lead de "+(name||"este registro")+"? No se puede deshacer.")) return;
   try{ const r=await api("DELETE","?id="+encodeURIComponent(id)); if(r.ok){ LEADS=LEADS.filter(x=>x.id!==id); render(); } else { alert("No se pudo borrar."); } }catch(e){}
 }
+function draftTab(btn,id){ const sheet=btn.closest(".sheet"); if(!sheet) return;
+  sheet.querySelectorAll(".dtab").forEach(d=>d.style.display="none"); document.getElementById(id).style.display="block";
+  btn.parentElement.querySelectorAll(".chip").forEach(c=>c.classList.remove("on")); btn.classList.add("on"); }
+function copyEl(btn){ const box=btn.previousElementSibling; if(!box) return; navigator.clipboard.writeText(box.innerText).then(()=>{ btn.textContent="✓ Copiado"; }); }
 function setF(f){ FILTER=f; render(); }
 function logout(){ PW=""; sessionStorage.removeItem("panel_pw"); render(); }
 async function doLogin(){

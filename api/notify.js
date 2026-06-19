@@ -99,10 +99,13 @@ module.exports = async (req, res) => {
        </div>`
     : "";
 
-  const draftHtml = ans.consular_draft
-    ? `<h3 style="font-size:14px;margin:20px 0 6px">✉️ Borrador de consulta al Consulado</h3>
-       <div style="font-size:12.5px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;color:#334155">${esc(ans.consular_draft)}</div>`
-    : "";
+  let draftHtml = "";
+  if (ans.consular_draft) {
+    const cd = typeof ans.consular_draft === "string" ? { es: ans.consular_draft } : ans.consular_draft;
+    const NM = { es: "Español", en: "English", pt: "Português" };
+    draftHtml = `<h3 style="font-size:14px;margin:20px 0 6px">✉️ Borrador de consulta al Consulado (ES / EN / PT)</h3>` +
+      Object.keys(cd).map(l => `<div style="margin-bottom:10px"><div style="font-size:11.5px;font-weight:700;color:#64748b">${NM[l] || l}</div><div style="font-size:12.5px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;color:#334155">${esc(cd[l])}</div></div>`).join("");
+  }
 
   const html = `
     <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
