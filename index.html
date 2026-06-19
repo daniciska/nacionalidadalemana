@@ -250,7 +250,31 @@ function analyze(){
     let mark=null;
     if(breakInfo) mark={person:breakInfo.person, type:breakInfo.legitimated?"legit":"break"};
     else if(lossInfo) mark={person:lossInfo.person, type:"loss"};
-    vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent"), state:st, msg, gaps, mark});
+    // Razonamiento jurídico (informe interno para la asesora; siempre en español)
+    let legalA;
+    if(breakInfo && breakInfo.reason==="genero")
+      legalA=`Corte de transmisión por género en ${breakInfo.person} (n. ${breakInfo.year||"?"}): hijo/a matrimonial de madre alemana antes del 1.1.1975 — bajo el RuStAG vigente la línea materna no confería la nacionalidad (transmitía el padre). Vía correctiva: derecho de declaración del §5 StAG (en vigor 20.8.2021, plazo 19.8.2031), extensible a descendientes. Documentos: partida de ${breakInfo.person} y prueba de la nacionalidad alemana de la madre (${breakInfo.parent}).`;
+    else if(breakInfo && breakInfo.reason==="paternidad" && breakInfo.legitimated)
+      legalA=`Posible legitimación: ${breakInfo.person} (n. ${breakInfo.year||"?"}) nació fuera del matrimonio de padre alemán y los padres se casaron después. Bajo el §5 RuStAG antiguo la legitimación de un menor (antes del 1.7.1998) confería la nacionalidad. Revisar acta de matrimonio y de reconocimiento de paternidad.`;
+    else if(breakInfo && breakInfo.reason==="paternidad")
+      legalA=`Corte por filiación no matrimonial de padre alemán antes del 1.7.1993 (§4(1) RuStAG: el hijo no matrimonial de padre alemán no adquiría salvo legitimación). ${breakInfo.person} n. ${breakInfo.year||"?"}.${breakInfo.year>=1949?" Por ser ≥1949, procede examinar la declaración del §5 StAG.":""}`;
+    else if(lossInfo){
+      const lg={
+        matrikel:`Pérdida ex §21 de la Ley del 1.6.1870 (vigente 1.1.1871–1.1.1914): ${lossInfo.person} habría residido +10 años en el extranjero sin inscripción consular (Matrikel) ni papeles de origen vigentes → pérdida automática antes de la abolición por el RuStAG de 1913. Verificar Matrikel/Passregister en el Politisches Archiv (invenio, grupo AB 2).`,
+        matrikel_posible:`Posible pérdida del §21 (regla de los 10 años): falta confirmar la fecha exacta de emigración y la inscripción consular de ${lossInfo.person}. Verificación en invenio (Politisches Archiv).`,
+        natz1914:`Pérdida por naturalización en el extranjero antes de 1914 (RuStAG/Ley 1870; si fue en EE.UU., Tratados Bancroft de 1868: presunción de expatriación a los 5 años).`,
+        stag25:`Pérdida por adquisición voluntaria de otra nacionalidad a petición (§25 StAG, aplicable hasta el 26.6.2024; país no-UE; sin Beibehaltungsgenehmigung). Confirmar la fecha respecto al nacimiento del descendiente siguiente (si fue posterior, el descendiente ya había adquirido).`,
+        deprivation:`La herencia ordinaria del §4 StAG está interrumpida por la persecución nazi; la vía idónea es la restitución (Art. 116(2) GG / §15 StAG), no la ascendencia común.`,
+        marriage:`Pérdida por matrimonio de mujer alemana con extranjero antes del 1.4.1953 (§17 nº6 RuStAG antiguo). Discriminación reversible mediante declaración/renaturalización.`
+      };
+      legalA=lg[lossInfo.reason]||"";
+    }
+    else if(gaps.length) legalA=`Faltan antecedentes para acreditar la cadena del §4 StAG: ${gaps.join("; ")}.`;
+    else legalA=`Cadena de transmisión del §4 StAG (ius sanguinis) aparentemente ininterrumpida de ${G?G.name:"el antepasado alemán"} a ${A.applicant.name||"el/la solicitante"}. Procede solicitar la Feststellung der deutschen Staatsangehörigkeit ante el BVA. Documentos: Staatsangehörigkeitsausweis o pasaporte alemán del antepasado, partidas de cada eslabón y prueba de no pérdida (§§21/25/17).`;
+    if(A.facts.adoption==="si") legalA += A.facts.adoption_age==="adulto" ? " Adopción de adulto: no transmite (el §6 StAG solo confiere por adopción de menores, desde 1977)." : " Adopción en la línea: el §6 StAG confiere por adopción de menor por adoptante alemán (desde 1977); verificar edad y fecha.";
+    if(A.facts.mil28==="si") legalA += " Posible pérdida por servicio militar voluntario en fuerzas armadas extranjeras (§28 StAG, desde 2000).";
+    if(A.facts.relative==="si") legalA += " Antecedente relevante: un familiar ya obtuvo la nacionalidad por el mismo antepasado — solicitar copia de su Feststellung/Staatsangehörigkeitsausweis como precedente.";
+    vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent"), state:st, msg, gaps, mark, legal:legalA});
   }
   // ----- VIA C: declaración §5 (cubre madre alemana 1949–1974 Y padre alemán no matrimonial 1949–1993) -----
   const deprivation = A.facts.persecution==="si" && !preNazi;
@@ -260,12 +284,14 @@ function analyze(){
           `Since the line broke because it came through a woman (${breakInfo.parent}), you may reclaim citizenship via a special declaration (§5), available until August 2031.`)
       : T(`Como ${breakInfo.person} nació fuera del matrimonio de un padre alemán (${breakInfo.parent}) antes de 1993, podrías recuperar la nacionalidad por una declaración especial (§5), disponible hasta agosto de 2031.`,
           `Since ${breakInfo.person} was born out of wedlock to a German father (${breakInfo.parent}) before 1993, you may reclaim citizenship via a special declaration (§5), available until August 2031.`);
-    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)"), state:"VIABLE", msg, gaps:[]});
+    vias.push({k:"C", name:T("Declaración por discriminación histórica (§5)","Historical-discrimination declaration (§5)"), state:"VIABLE", msg, gaps:[],
+      legal:`Declaración del §5 StAG (en vigor 20.8.2021, plazo hasta 19.8.2031) por discriminación histórica: ${breakInfo.reason==="genero"?"hijo/a matrimonial de madre alemana nacido 1949–1974":"hijo/a no matrimonial de padre alemán nacido 1949–1993"}. Adquisición por simple declaración ante el BVA, sin examen de idioma ni residencia, extensible a descendientes. Excepción excluyente: reconocimiento paterno entre 1.1.1970 y 31.8.1986.`});
   }
   // ----- VIA C2: pérdida de nacionalidad por matrimonio (mujer alemana, antes de 1953) -----
   if(A.facts.marriageloss==="si" && !deprivation){
     vias.push({k:"C", name:T("Restitución por pérdida por matrimonio","Restitution for citizenship lost by marriage"), state:"DUDOSO",
-      msg:T("Una mujer de tu línea pudo perder la nacionalidad alemana al casarse con un extranjero antes de 1953. Esta discriminación histórica suele poder revertirse mediante declaración o renaturalización — requiere revisión de un especialista.","A woman in your line may have lost German citizenship by marrying a foreigner before 1953. This historical discrimination can often be reversed via declaration or re-naturalization — needs specialist review."), gaps:[]});
+      msg:T("Una mujer de tu línea pudo perder la nacionalidad alemana al casarse con un extranjero antes de 1953. Esta discriminación histórica suele poder revertirse mediante declaración o renaturalización — requiere revisión de un especialista.","A woman in your line may have lost German citizenship by marrying a foreigner before 1953. This historical discrimination can often be reversed via declaration or re-naturalization — needs specialist review."), gaps:[],
+      legal:`Pérdida por matrimonio con extranjero antes del 1.4.1953 (§17 nº6 RuStAG antiguo, derogado por la igualdad del Art. 3(2) GG). Discriminación de género reversible: examinar declaración análoga al §5 StAG o renaturalización facilitada (§13 StAG). Requiere acta de matrimonio de la mujer alemana y prueba de su nacionalidad.`});
   }
   // ----- VIA B: restitución nazi (SOLO si hay un "sí" afirmativo; "no sé" no crea vía) -----
   if(A.facts.persecution==="si"){
@@ -279,12 +305,16 @@ function analyze(){
       msg=T(`Como ${G?G.name:"tu antepasado"} o su familia perdieron la nacionalidad alemana por la persecución nazi, tú y tus descendientes podrían recuperarla por restitución, sin renunciar a tu nacionalidad actual.`,
             `Since ${G?G.name:"your ancestor"} or their family lost German citizenship due to Nazi persecution, you and your descendants may reclaim it via restitution, without giving up your current nationality.`);
     }
-    vias.push({k:"B", name:T("Restitución por persecución nazi (Art. 116(2)/§15)","Nazi-persecution restitution (Art. 116(2)/§15)"), state:st, msg, gaps:[]});
+    vias.push({k:"B", name:T("Restitución por persecución nazi (Art. 116(2)/§15)","Nazi-persecution restitution (Art. 116(2)/§15)"), state:st, msg, gaps:[],
+      legal: preNazi
+        ? `Restitución dudosa por la fecha: el antepasado emigró antes del régimen nazi (1933). El Art. 116(2) GG / §15 StAG cubre privaciones 1933–1945; la única hipótesis aplicable a un emigrante previo sería la 11.ª Ordenanza de la Ley de Ciudadanía del Reich (25.11.1941), que desnacionalizó a los judíos residentes en el extranjero. Confirmar la privación efectiva.`
+        : `Restitución por persecución nazi: Art. 116(2) GG (restauración de quienes fueron privados de la nacionalidad entre 1933 y 1945) o §15 StAG (restitución, en vigor 20.8.2021, para quienes la perdieron de otro modo o no pudieron adquirirla por la persecución). Sin examen de idioma/residencia, admite doble nacionalidad y se extiende a descendientes. Documentos: prueba de la nacionalidad alemana previa y evidencia de persecución (Reichsanzeiger 1941, expedientes de Wiedergutmachung, Arolsen Archives, Yad Vashem).`});
   }
   // ----- VIA D: residencia -----
   if(A.facts.lives==="si"){
     vias.push({k:"D", name:T("Naturalización por residencia (§10)","Naturalization by residence (§10)"), state:"DUDOSO",
-      msg:T("Si vives en Alemania, podrías naturalizarte tras 5 años cumpliendo idioma, sustento y test. Se evalúa aparte.","If you live in Germany, you may naturalize after 5 years meeting language, livelihood and test. Assessed separately."), gaps:[]});
+      msg:T("Si vives en Alemania, podrías naturalizarte tras 5 años cumpliendo idioma, sustento y test. Se evalúa aparte.","If you live in Germany, you may naturalize after 5 years meeting language, livelihood and test. Assessed separately."), gaps:[],
+      legal:`Naturalización por residencia §10 StAG (reforma StARModG, 27.6.2024): 5 años de residencia legal, idioma B1, Einbürgerungstest, sustento propio, sin condenas y compromiso con la Ley Fundamental; doble nacionalidad ya admitida. (La vía exprés de 3 años fue derogada el 8.10.2025.) Verificar permiso de residencia y empadronamiento.`});
   }
   const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
   vias.sort((x,y)=>order[x.state]-order[y.state]);
@@ -675,7 +705,7 @@ function contactOk(){ const c=state.contact;
 async function pushLead(status, vias, checklist){
   const created=new Date().toISOString();
   const answers={applicant:state.applicant, chain:state.chain, facts:state.facts, investigate:checklist||[], consent:state.contact.consent===true, consent_at:created};
-  const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null}));
+  const verdict=(vias||[]).map(v=>({via:v.k,name:v.name,state:v.state,msg:v.msg,mark:v.mark||null,legal:v.legal||null}));
   const body={session_id:state.sessionId, status, lang:LANG,
     name:state.contact.name||state.applicant.name||null, email:state.contact.email||null,
     phone:(phoneDigits(state.contact.phone).length>=8 ? state.contact.phone : null),

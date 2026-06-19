@@ -183,6 +183,7 @@ function detail(id){
     <h3>Vías evaluadas</h3>${vias||'<div class="muted" style="font-size:13px">Sin vías.</div>'}
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${(a.facts&&a.facts.notes)?`<h3>Nota del solicitante</h3><div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.facts.notes)}</div>`:""}
+    ${(()=>{ const li=v.filter(x=>x.legal); return li.length?`<h3>⚖️ Análisis técnico (uso interno)</h3><div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:11px 13px">${li.map(x=>`<div style="margin-bottom:9px"><div style="font-weight:700;font-size:13px">${esc(x.name||x.via)} — ${esc((ST[x.state]||["","?"])[1])}</div><div style="font-size:13px;color:#334155">${esc(x.legal)}</div></div>`).join("")}</div>`:""; })()}
   </div>`;
   document.body.appendChild(m);
 }

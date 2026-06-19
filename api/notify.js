@@ -87,6 +87,16 @@ module.exports = async (req, res) => {
        <div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;color:#334155">${esc(ans.facts.notes)}</div>`
     : "";
 
+  const legalItems = sorted.filter(v => v.legal);
+  const legalSection = legalItems.length
+    ? `<div style="margin-top:22px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;padding:14px 16px">
+         <h3 style="font-size:14px;margin:0 0 4px;color:#3730a3">⚖️ Análisis técnico (uso interno — asesora)</h3>
+         <p style="font-size:11.5px;color:#64748b;margin:0 0 10px">Fundamentación jurídica por vía, generada del caso. Verificar con la normativa vigente.</p>
+         ${legalItems.map(v => { const s = ST[v.state] || ["#64748b","#f1f5f9", v.state];
+           return `<div style="margin-bottom:11px"><div style="font-weight:700;font-size:13px;color:${s[0]}">${esc(v.name || v.via)} — ${s[2]}</div><div style="font-size:13px;color:#1e293b;margin-top:2px">${esc(v.legal)}</div></div>`; }).join("")}
+       </div>`
+    : "";
+
   const html = `
     <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
       <h2 style="margin:0 0 4px">🇩🇪 Nuevo lead — Nacionalidad Alemana</h2>
@@ -106,6 +116,7 @@ module.exports = async (req, res) => {
 
       ${invList}
       ${notesHtml}
+      ${legalSection}
 
       <p style="color:#94a3b8;font-size:11.5px;margin-top:22px;border-top:1px solid #e2e8f0;padding-top:12px">
         Orientación preliminar automática (no es asesoría jurídica). El detalle completo del árbol y las respuestas está en Supabase → Table Editor → <b>leads</b>.
