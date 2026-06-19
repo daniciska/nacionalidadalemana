@@ -586,36 +586,35 @@ function renderTreeSoFar(){ return familyTree(null); }
 
 function renderResult(){
   const {vias,investigate}=analyze();
-  const map={VIABLE:["g",T("Prometedor","Promising")],DUDOSO:["a",T("Posible","Possible")],POCO:["r",T("Difícil por esta vía","Hard via this route")]};
-  const card=v=>{const m=map[v.state]||["b","?"]; const g=v.gaps&&v.gaps.length?`<p>🔎 ${v.gaps.map(esc).join("<br>🔎 ")}</p>`:"";
-    return `<div class="res ${m[0]}"><span class="badge">${m[1]}</span><h3>${esc(v.name)}</h3><p>${esc(v.msg)}</p>${g}</div>`;};
-  const leads=vias.filter(v=>v.state==="VIABLE"||v.state==="DUDOSO");
-  const obstacles=vias.filter(v=>v.state==="POCO");
-
-  let html=`<h1>${T("Tu evaluación preliminar","Your preliminary assessment")}</h1>`;
-  html+=`<div class="step-label">${T("Tu árbol","Your tree")}</div>`+renderTreeWithBreak(vias);
-
-  if(leads.length){
-    html+=`<p class="lead" style="margin-top:14px">${T("Vías que podrían aplicar a tu caso:","Routes that might apply to your case:")}</p>`;
-    leads.forEach(v=>html+=card(v));
-  } else if(!obstacles.length){
-    html+=`<div class="res b" style="margin-top:14px"><span class="badge">${T("Necesitas investigar más","More research needed")}</span><p>${T("Con los datos actuales —varias respuestas quedaron en «no sé»— todavía no podemos identificar una vía concreta. Esto no es un «no»: simplemente falta información para evaluar tu caso. El primer paso es reunir los antecedentes de abajo.","With the current data —several answers were \"don't know\"— we can't identify a concrete route yet. This is not a \"no\": there's just not enough information to assess your case. The first step is to gather the items below.")}</p></div>`;
-  }
-
-  if(obstacles.length){
-    html+=`<p class="lead" style="margin-top:14px">${T("Puntos que dificultan tu caso por ahora:","Points that make your case harder for now:")}</p>`;
-    obstacles.forEach(v=>html+=card(v));
-  }
-
   const infoGaps=vias.filter(v=>v.state==="INFO").flatMap(v=>v.gaps||[]);
   const checklist=[...new Set([...investigate,...infoGaps])];
+
+  // Veredicto ÚNICO para el cliente (el detalle por vía queda para la asesora)
+  const overall = vias.some(v=>v.state==="VIABLE")?"VIABLE"
+    : vias.some(v=>v.state==="DUDOSO")?"DUDOSO"
+    : vias.some(v=>v.state==="POCO")?"POCO":"INFO";
+  const OV={
+    VIABLE:["g","🟢",T("Altamente posible","Highly possible"),T("Según tus respuestas, tu caso tiene buenas bases para obtener la nacionalidad alemana. El siguiente paso es revisarlo en detalle y reunir la documentación.","Based on your answers, your case has solid grounds to obtain German citizenship. The next step is a detailed review and gathering the documents.")],
+    DUDOSO:["a","🟡",T("Posible","Possible"),T("Tu caso es posible, pero hay puntos que conviene confirmar con una revisión profesional.","Your case is possible, but some points should be confirmed with a professional review.")],
+    POCO:["r","🔴",T("Poco posible","Unlikely"),T("Por ahora tu caso parece poco probable por la vía analizada. Aun así, vale la pena una segunda opinión profesional para revisar alternativas.","For now your case seems unlikely via the analyzed route. Still, a second professional opinion is worth it to check alternatives.")],
+    INFO:["b","🔵",T("Necesitamos más información","More information needed"),T("Para evaluarte mejor necesitamos algunos datos más. Reúne los antecedentes de abajo y podremos orientarte.","To assess you better we need a bit more data. Gather the items below and we'll be able to guide you.")]
+  };
+  const ov=OV[overall];
+
+  let html=`<h1>${T("Tu evaluación preliminar","Your preliminary assessment")}</h1>`;
+  html+=`<div class="res ${ov[0]}" style="text-align:center;padding:20px 18px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.85">${T("Resultado preliminar","Preliminary result")}</div>
+      <div style="font-size:23px;font-weight:800;margin:6px 0">${ov[1]} ${ov[2]}</div>
+      <div style="font-size:14.5px">${ov[3]}</div>
+    </div>`;
+  html+=`<div class="step-label">${T("Tu árbol","Your tree")}</div>`+renderTreeWithBreak(vias);
+
   if(checklist.length){
-    html+=`<div class="step-label" style="margin-top:18px">${T("Qué te conviene averiguar","What you should find out")}</div>
+    html+=`<div class="step-label" style="margin-top:18px">${T("Para avanzar, conviene reunir","To move forward, gather")}</div>
       <ul class="docs">`+checklist.map(x=>`<li>${esc(x)}</li>`).join("")+`</ul>`;
   }
-
-  if(state.bothNoted) html+=`<div class="res b"><span class="badge">${T("Otra rama","Other branch")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una rama; vuelve a hacer el test para evaluar la otra — podría abrir una segunda vía.","You indicated German roots on both sides. This evaluated one branch; take the test again to assess the other — it could open a second route.")}</p></div>`;
-  html+=`<p class="lead" style="margin-top:16px">${T("Te contactaremos con un análisis detallado y la lista de documentos para tu caso.","We'll contact you with a detailed analysis and the document list for your case.")}</p>`;
+  if(state.bothNoted) html+=`<div class="res b" style="margin-top:8px"><span class="badge">${T("Otra rama","Other branch")}</span><p>${T("Indicaste raíces alemanas por ambos lados. Aquí evaluamos una; puedes repetir el test para la otra.","You indicated German roots on both sides. This evaluated one; you can retake the test for the other.")}</p></div>`;
+  html+=`<p class="lead" style="margin-top:16px">${T("Te contactaremos con un análisis más detallado y los próximos pasos para tu caso.","We'll contact you with a more detailed analysis and the next steps for your case.")}</p>`;
   html+=`<p class="savednote" id="saved"></p>`;
   document.getElementById("app").innerHTML=html; pushLead("completo", vias, checklist);
 }
