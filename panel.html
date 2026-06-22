@@ -155,6 +155,62 @@ function card(l){
   </div>`;
 }
 
+// --- Volcado completo de TODO lo ingresado (para análisis de la asesora) ---
+// Etiquetas legibles de cada respuesta clave (facts) y traducción de sus valores.
+const FACT_LABELS={
+  emigYear:"¿Cuándo emigró el antepasado?", matrikel:"¿Tiene matrícula consular (Matrikel)?",
+  natz1914:"¿Se naturalizó en otro país antes de 1914?", persecution:"¿Hubo persecución del Nacionalsocialismo?",
+  persecution_type:"Tipo de persecución", natz25:"¿Se naturalizó voluntariamente en otro país?",
+  natz25_eu:"¿La naturalización fue en la UE/Suiza?", natz25_year:"¿Antes o después de 2024?",
+  natz25_permit:"¿Pidió permiso de conservación (Beibehaltung)?", natz25_when:"¿La naturalización fue antes o después del nacimiento del hijo/a?",
+  adoption:"¿Alguien de la línea fue adoptado?", adoption_age:"¿Adoptado siendo menor o adulto?",
+  marriageloss:"¿Una mujer de la línea se casó con un no-alemán antes de 1953?",
+  mil28:"¿Servicio militar voluntario en otro país desde 2000?", namechange:"¿Cambios/errores de apellido en la línea?",
+  relative:"¿Algún familiar ya obtuvo la nacionalidad por este antepasado?", lives:"¿Vive actualmente en Alemania?",
+  hasGermanDoc:"¿Tiene algún documento alemán del antepasado?", germanDocType:"Tipo de documento alemán",
+  germanDocTypeOther:"Documento (otro, detalle)"
+};
+const FACT_VALUES={
+  emigYear:{pre1904:"Antes de 1904",["1904_1913"]:"Entre 1904 y 1913",ns:"No se sabe",post1913:"Después de 1913",noemigro:"No emigró"},
+  matrikel:{si:"Sí",no:"No",ns:"No sabe"}, natz1914:{usa:"Sí, en EE.UU.",otro:"Sí, en otro país",no:"No",ns:"No sabe"},
+  persecution:{si:"Sí",no:"No",ns:"No sabe"}, natz25:{si:"Sí",no:"No",ns:"No sabe",si_apeticion:"Sí, a petición propia",noeu_apeticion:"Sí (fuera UE), a petición"},
+  natz25_eu:{si:"Sí (UE/Suiza)",no:"No",ns:"No sabe"}, natz25_year:{antes:"Antes de 2024",desde2024:"En 2024 o después",ns:"No sabe"},
+  natz25_permit:{si:"Sí, concedido",no:"No / no lo pidió",ns:"No sabe"}, natz25_when:{antes:"Antes del nacimiento del hijo/a",despues:"Después del nacimiento del hijo/a",ns:"Fue el solicitante / no sabe"},
+  adoption:{si:"Sí",no:"No",ns:"No sabe"}, adoption_age:{menor:"Menor de edad",adulto:"Adulto",ns:"No sabe"},
+  marriageloss:{si:"Sí",no:"No",ns:"No sabe"}, mil28:{si:"Sí",no:"No",ns:"No sabe"},
+  namechange:{si:"Sí",no:"No",ns:"No sabe"}, relative:{si:"Sí",no:"No",ns:"No sabe"},
+  lives:{si:"Sí",no:"No"}, hasGermanDoc:{si:"Sí",no:"No",ns:"No sabe"},
+  germanDocType:{acta_nac:"Certificado de nacimiento alemán",doc_aleman:"Otro documento alemán",prueba_emig:"Prueba de emigración",otro:"Otro"}
+};
+function factVal(k,v){ if(v==null||v==="") return "—"; const m=FACT_VALUES[k]; return (m&&m[v]!=null)?m[v]:String(v); }
+function wedLabel(v){ return {si:"Sí",no:"No",ns:"No sabe"}[v]||(v?String(v):"—"); }
+function adAgeLabel(v){ return {menor:"Menor de edad",adulto:"Adulto/a",ns:"No sabe"}[v]||(v?String(v):"—"); }
+function dl(label,value){ return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9"><div style="flex:1;color:#64748b;font-size:12.5px">${esc(label)}</div><div style="flex:1;font-size:12.5px;font-weight:600">${esc(value)}</div></div>`; }
+function fullDataDump(a){
+  const facts=a.facts||{}, chain=a.chain||[], ap=a.applicant||{};
+  let out=`<h3>📋 Todos los datos ingresados</h3><div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">`;
+  // Solicitante
+  out+=`<div style="font-weight:700;font-size:12.5px;color:#1d4ed8;margin:2px 0 4px">Solicitante</div>`;
+  out+=dl("Nombre",ap.name||"—")+dl("Año de nacimiento",ap.birthYear||"—")+dl("País de nacimiento",ap.country||"—");
+  out+=dl("¿Adoptado/a?",wedLabel(ap.adopted))+(ap.adopted==="si"?dl("Edad al ser adoptado/a",adAgeLabel(ap.adoptedAge)):"")+dl("¿Servicio militar extranjero (desde 2000)?",wedLabel(ap.military));
+  // Cada persona de la línea
+  chain.forEach((p,i)=>{
+    out+=`<div style="font-weight:700;font-size:12.5px;color:#1d4ed8;margin:10px 0 4px">${esc(genLabel(i+1,p.rel))} — ${esc(p.name||"(sin nombre)")}</div>`;
+    out+=dl("Relación",p.rel||"—")+dl("Año de nacimiento",p.birthYear||"—")+dl("País de nacimiento",p.country||"—");
+    out+=dl("¿Ciudadano alemán?",wedLabel(p.germanCitizen))+dl("¿Hijo/a dentro del matrimonio?",wedLabel(p.childInWedlock))+dl("Año de matrimonio",p.marriageYear||"—");
+    out+=dl("¿Adoptado/a?",wedLabel(p.adopted))+(p.adopted==="si"?dl("Edad al ser adoptado/a",adAgeLabel(p.adoptedAge)):"")+dl("¿Servicio militar extranjero (desde 2000)?",wedLabel(p.military));
+  });
+  // Respuestas clave (todas las facts excepto notas, que ya se muestran aparte)
+  const skip={notes:1};
+  const keys=Object.keys(facts).filter(k=>!skip[k] && facts[k]!=null && facts[k]!=="");
+  if(keys.length){
+    out+=`<div style="font-weight:700;font-size:12.5px;color:#1d4ed8;margin:10px 0 4px">Respuestas clave</div>`;
+    keys.forEach(k=>{ out+=dl(FACT_LABELS[k]||k, factVal(k,facts[k])); });
+  }
+  out+=`</div>`;
+  return out;
+}
+
 function detail(id){
   const l=LEADS.find(x=>x.id===id); if(!l) return;
   const a=l.answers||{}; const v=Array.isArray(l.verdict)?l.verdict:[];
@@ -182,6 +238,7 @@ function detail(id){
     <p class="muted" style="font-size:13px;margin:4px 0 0">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc(fmtCL(l.created_at))} (hora Chile)</p>
     <h3>Árbol familiar</h3><div class="tree2">${tree}</div>
     <h3>Vías evaluadas</h3>${vias||'<div class="muted" style="font-size:13px">Sin vías.</div>'}
+    ${fullDataDump(a)}
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${(a.facts&&a.facts.notes)?`<h3>Nota del solicitante</h3><div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.facts.notes)}</div>`:""}
     ${(()=>{ const li=v.filter(x=>x.legal); return li.length?`<h3>⚖️ Análisis técnico (uso interno)</h3><div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:11px 13px">${li.map(x=>`<div style="margin-bottom:9px"><div style="font-weight:700;font-size:13px">${esc(x.name||x.via)} — ${esc((ST[x.state]||["","?"])[1])}</div><div style="font-size:13px;color:#334155">${esc(x.legal)}</div></div>`).join("")}</div>`:""; })()}

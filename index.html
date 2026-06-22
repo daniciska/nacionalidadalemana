@@ -149,6 +149,21 @@ function back(){ if(!hist.length) return; const p=JSON.parse(hist.pop());
   state.applicant=p.a;state.chain=p.c;state.draft=p.d;state.facts=p.f;state.factsQueue=p.q;state.fIdx=p.i;state.screen=p.s;state.contact=p.ct;state.bothNoted=p.bn; render(); }
 function go(screen){ snapshot(); state.screen=screen; render(); }
 
+// ¿Hay una mujer en la línea que pudo casarse con un no-alemán antes del 1.4.1953?
+// Las mujeres entran a la cadena con rel==="madre". Si no hay año de matrimonio, se usa el
+// año de nacimiento como aproximación (alguien nacida hasta ~1935 pudo casarse antes de 1953).
+// Ante falta de datos, se pregunta por precaución.
+function womanMayHaveMarriedPre1953(){
+  return state.chain.some(function(p){
+    if(p.rel!=="madre") return false;
+    const my=parseInt(p.marriageYear,10);
+    if(my) return my<=1953;
+    const by=parseInt(p.birthYear,10);
+    if(by) return by<=1935;
+    return true;
+  });
+}
+
 /* ---------------- construir cola de hechos ---------------- */
 function buildFactsQueue(){
   const G=germanAncestor(); const q=[];
@@ -156,10 +171,12 @@ function buildFactsQueue(){
   // matrikel/natz1914 se deciden tras conocer el año de emigración (en advance)
   q.push("f_persecution");
   q.push("f_natz25");
-  q.push("f_adoption");
-  // pérdida por matrimonio (§17): solo se pregunta si en algún eslabón el matrimonio quedó incierto
-  if(state.chain.some(function(p){ return p.childInWedlock==="ns" || (p.childInWedlock==="no" && !p.marriageYear); })) q.push("f_marriageloss");
-  q.push("f_mil28");
+  // adopción y servicio militar ahora se preguntan por persona (en el árbol), no aquí
+  // pérdida por matrimonio (§17 nº6): una mujer alemana que se casó con un no-alemán antes del
+  // 1.4.1953 perdía la nacionalidad — AUNQUE sus hijos hayan nacido dentro del matrimonio.
+  // Por eso se pregunta siempre que haya una mujer en la línea que pudo casarse antes de 1953,
+  // o cuando el estado civil de algún eslabón quedó incierto.
+  if(state.chain.some(function(p){ return p.childInWedlock==="ns" || (p.childInWedlock==="no" && !p.marriageYear); }) || womanMayHaveMarriedPre1953()) q.push("f_marriageloss");
   q.push("f_namechange");
   q.push("f_lives");
   q.push("f_relative");
@@ -190,6 +207,16 @@ function nextFact(){
 function analyze(){
   const A=state, vias=[]; const yr=p=>parseInt(p&&p.birthYear)||null;
   const preNazi=["pre1904","1904_1913","1914_1932"].includes(A.facts.emigYear);   // emigró antes del régimen nazi (1933)
+  // Adopción y servicio militar: ahora se capturan por persona (p.adopted / p.adoptedAge / p.military).
+  // Se mantiene compatibilidad con los facts globales antiguos (A.facts.adoption / adoption_age / mil28).
+  const allPeople=[A.applicant,...A.chain];
+  const adoptedPpl=allPeople.filter(p=>p&&p.adopted==="si");
+  const anyAdoption=A.facts.adoption==="si" || adoptedPpl.length>0;
+  const adoptedAdult=A.facts.adoption_age==="adulto" || adoptedPpl.some(p=>p.adoptedAge==="adulto");
+  const adoptedNames=adoptedPpl.map(p=>p.name).filter(Boolean).join(", ");
+  const militaryPpl=allPeople.filter(p=>p&&p.military==="si");
+  const anyMilitary=A.facts.mil28==="si" || militaryPpl.length>0;
+  const militaryNames=militaryPpl.map(p=>p.name).filter(Boolean).join(", ");
   // ----- VIA A: cadena de descendencia -----
   let breakInfo=null, gaps=[], maritalUnknown=[];
   for(let i=0;i<A.chain.length;i++){
@@ -285,11 +312,12 @@ function analyze(){
       msg=lossR[lossInfo.reason];
     } else if(gaps.length){ st="INFO"; msg=T("Falta confirmar algunos datos para evaluar la línea.","Some data is missing to assess the line.","Faltam confirmar alguns dados para avaliar a linha."); }
     else { st="VIABLE"; msg=T(`La línea desde ${G?G.name:"tu antepasado alemán"} hasta ${A.applicant.name||"ti"} parece mantenerse. Habrá que respaldarla con documentos.`,`The line from ${G?G.name:"your German ancestor"} to ${A.applicant.name||"you"} appears intact. It must be backed with documents.`,`A linha de ${G?G.name:"seu antepassado alemão"} até ${A.applicant.name||"você"} parece se manter. Será necessário respaldá-la com documentos.`); }
-    if(A.facts.adoption==="si"){
-      if(A.facts.adoption_age==="adulto"){ st="POCO"; msg=T(`La adopción de una persona adulta no transmite la nacionalidad alemana, por lo que la línea no continúa por esa vía.`,`Adoption of an adult does not transmit German citizenship, so the line does not continue through that route.`,`A adoção de uma pessoa adulta não transmite a nacionalidade alemã, portanto a linha não continua por essa via.`); }
-      else if(st==="VIABLE"){ st="DUDOSO"; msg=T(`Hay una adopción en la línea hacia ${A.applicant.name||"ti"}. La adopción transmite la nacionalidad solo si fue de un menor por un adoptante alemán (desde 1977), así que necesita revisión profesional.`,`There is an adoption in the line to ${A.applicant.name||"you"}. Adoption transmits citizenship only if it was of a minor by a German adopter (since 1977), so it needs professional review.`,`Há uma adoção na linha até ${A.applicant.name||"você"}. A adoção transmite a nacionalidade apenas se foi de um menor por um adotante alemão (desde 1977), portanto requer revisão profissional.`); }
+    if(anyAdoption){
+      const who=adoptedNames||(A.applicant.name||T("alguien de la línea","someone in the line","alguém da linha"));
+      if(adoptedAdult){ st="POCO"; msg=T(`La adopción de una persona adulta (${who}) no transmite la nacionalidad alemana, por lo que la línea no continúa por esa vía.`,`The adoption of an adult (${who}) does not transmit German citizenship, so the line does not continue through that route.`,`A adoção de uma pessoa adulta (${who}) não transmite a nacionalidade alemã, portanto a linha não continua por essa via.`); }
+      else if(st==="VIABLE"){ st="DUDOSO"; msg=T(`Hay una adopción en la línea (${who}). La adopción transmite la nacionalidad solo si fue de un menor por un adoptante alemán (desde 1977), así que necesita revisión profesional.`,`There is an adoption in the line (${who}). Adoption transmits citizenship only if it was of a minor by a German adopter (since 1977), so it needs professional review.`,`Há uma adoção na linha (${who}). A adoção transmite a nacionalidade apenas se foi de um menor por um adotante alemão (desde 1977), portanto requer revisão profissional.`); }
     }
-    if(A.facts.mil28==="si" && st==="VIABLE"){ st="DUDOSO"; msg=T(`Posible pérdida de la nacionalidad por servicio militar voluntario en un ejército extranjero (§28, desde el año 2000); requiere revisión profesional.`,`Possible loss of citizenship due to voluntary service in a foreign army (§28, since the year 2000); needs professional review.`,`Possível perda da nacionalidade por serviço militar voluntário em um exército estrangeiro (§28, desde o ano 2000); requer revisão profissional.`); }
+    if(anyMilitary && st==="VIABLE"){ st="DUDOSO"; msg=T(`Posible pérdida de la nacionalidad por servicio militar voluntario en un ejército extranjero${militaryNames?" ("+militaryNames+")":""} (§28, desde el año 2000); requiere revisión profesional.`,`Possible loss of citizenship due to voluntary service in a foreign army${militaryNames?" ("+militaryNames+")":""} (§28, since the year 2000); needs professional review.`,`Possível perda da nacionalidade por serviço militar voluntário em um exército estrangeiro${militaryNames?" ("+militaryNames+")":""} (§28, desde o ano 2000); requer revisão profissional.`); }
     let mark=null;
     if(breakInfo) mark={person:breakInfo.person, type:breakInfo.legitimated?"legit":"break"};
     else if(lossInfo) mark={person:lossInfo.person, type:"loss"};
@@ -328,8 +356,8 @@ function analyze(){
     }
     else if(gaps.length) legalA=`Faltan antecedentes para acreditar la cadena del §4 StAG: ${gaps.join("; ")}.`;
     else legalA=`Cadena de transmisión del §4 StAG (ius sanguinis) aparentemente ininterrumpida de ${G?G.name:"el antepasado alemán"} a ${A.applicant.name||"el/la solicitante"}. Procede solicitar la Feststellung der deutschen Staatsangehörigkeit ante el BVA. Documentos: Staatsangehörigkeitsausweis o pasaporte alemán del antepasado, partidas de cada eslabón y prueba de no pérdida (§§21/25/17).`;
-    if(A.facts.adoption==="si") legalA += A.facts.adoption_age==="adulto" ? " Adopción de adulto: no transmite (el §6 StAG solo confiere por adopción de menores, desde 1977)." : " Adopción en la línea: el §6 StAG confiere por adopción de menor por adoptante alemán (desde 1977); verificar edad y fecha.";
-    if(A.facts.mil28==="si") legalA += " Posible pérdida por servicio militar voluntario en fuerzas armadas extranjeras (§28 StAG, desde 2000).";
+    if(anyAdoption) legalA += adoptedAdult ? ` Adopción de adulto${adoptedNames?" ("+adoptedNames+")":""}: no transmite (el §6 StAG solo confiere por adopción de menores, desde 1977).` : ` Adopción en la línea${adoptedNames?" ("+adoptedNames+")":""}: el §6 StAG confiere por adopción de menor por adoptante alemán (desde 1977); verificar edad y fecha.`;
+    if(anyMilitary) legalA += ` Posible pérdida por servicio militar voluntario en fuerzas armadas extranjeras${militaryNames?" ("+militaryNames+")":""} (§28 StAG, desde 2000).`;
     if(A.facts.relative==="si") legalA += " Antecedente relevante: un familiar ya obtuvo la nacionalidad por el mismo antepasado — solicitar copia de su Feststellung/Staatsangehörigkeitsausweis como precedente.";
     vias.push({k:"A", name:T("Nacionalidad por ascendencia","Citizenship by descent","Nacionalidade por ascendência"), state:st, msg, gaps, mark, legal:legalA});
   }
@@ -398,10 +426,28 @@ function analyze(){
   if(A.facts.natz25==="ns") inv.push(T("Confirmar si tú o un antepasado se naturalizaron en otro país por solicitud propia.","Confirm whether you or an ancestor naturalized abroad by application.","Confirmar se você ou um antepassado se naturalizaram em outro país por solicitação própria."));
   if(A.facts.natz25==="si_apeticion" && !natzLoss && (A.facts.natz25_eu==="ns"||A.facts.natz25_year==="ns"||A.facts.natz25_permit==="ns"))
     inv.push(T("Confirmar si esa naturalización causó la pérdida de la nacionalidad alemana: si el país es de la UE/Suiza, el año exacto, y si hubo permiso de conservación.","Confirm whether that naturalization caused loss of German citizenship: whether the country is EU/Switzerland, the exact year, and whether there was a retention permit.","Confirmar se essa naturalização causou a perda da nacionalidade alemã: se o país é da UE/Suíça, o ano exato, e se houve autorização de conservação."));
-  if(A.facts.adoption==="si") inv.push(T("Revisar con un especialista si la adopción en tu línea transmite la nacionalidad (edad del adoptado, nacionalidad del adoptante, fecha).","Have a specialist review whether the adoption in your line transmits citizenship (adoptee's age, adopter's nationality, date).","Consultar um especialista sobre se a adoção na sua linha transmite a nacionalidade (idade do adotado, nacionalidade do adotante, data)."));
-  if(A.facts.mil28==="si") inv.push(T("Revisar con un especialista si el servicio militar voluntario en un ejército extranjero causó pérdida de la nacionalidad (§28).","Have a specialist check whether voluntary service in a foreign army caused loss of citizenship (§28).","Consultar um especialista sobre se o serviço militar voluntário em um exército estrangeiro causou perda da nacionalidade (§28)."));
+  if(anyAdoption) inv.push(T(`Revisar con un especialista si la adopción${adoptedNames?" de "+adoptedNames:""} transmite la nacionalidad (edad al ser adoptado/a, nacionalidad del adoptante, fecha).`,`Have a specialist review whether the adoption${adoptedNames?" of "+adoptedNames:""} transmits citizenship (age when adopted, adopter's nationality, date).`,`Consultar um especialista sobre se a adoção${adoptedNames?" de "+adoptedNames:""} transmite a nacionalidade (idade ao ser adotado/a, nacionalidade do adotante, data).`));
+  if(anyMilitary) inv.push(T(`Revisar con un especialista si el servicio militar voluntario en un ejército extranjero${militaryNames?" ("+militaryNames+")":""} causó pérdida de la nacionalidad (§28).`,`Have a specialist check whether voluntary service in a foreign army${militaryNames?" ("+militaryNames+")":""} caused loss of citizenship (§28).`,`Consultar um especialista sobre se o serviço militar voluntário em um exército estrangeiro${militaryNames?" ("+militaryNames+")":""} causou perda da nacionalidade (§28).`));
   if(A.facts.namechange==="si") inv.push(T("Reunir documentos que justifiquen los cambios de apellido / ortografía / identidad (deben acreditar que es la misma persona).","Gather documents justifying surname / spelling / identity changes (they must prove it's the same person).","Reunir documentos que justifiquem as mudanças de sobrenome / ortografia / identidade (devem comprovar que é a mesma pessoa)."));
   if(A.facts.relative==="si") inv.push(T("Un familiar ya obtuvo la nacionalidad por el mismo antepasado: pídele su certificado de nacionalidad alemana o el número de expediente. Es un antecedente muy valioso para respaldar tu caso.","A relative already obtained citizenship through the same ancestor: ask them for their German citizenship certificate or case number. It's a very valuable supporting record for your case.","Um familiar já obteve a nacionalidade pelo mesmo antepassado: peça seu certificado de nacionalidade alemã ou o número do expediente. É um antecedente muito valioso para respaldar seu caso."));
+
+  // ===== FACTOR CRÍTICO MÍNIMO: debe existir una raíz alemana confirmada =====
+  // Sin una persona nacida en Alemania o con nacionalidad alemana confirmada, NINGUNA vía por
+  // ascendencia/restitución/declaración (A/B/C/C2) puede afirmarse: ni la persecución, ni el
+  // matrimonio, ni el §5 tienen punto de partida. El caso es, como mucho, "investigar".
+  // (La naturalización por residencia §10 sí es independiente de la ascendencia y se conserva.)
+  const germanRoot = A.chain.some(isGerman);
+  if(!germanRoot){
+    const naturaliz = vias.filter(v=> v.k==="D");
+    const infoVia = {k:"X",
+      name:T("Primero hay que confirmar al antepasado alemán","First, the German ancestor must be confirmed","Primeiro é preciso confirmar o antepassado alemão"),
+      state:"INFO",
+      msg:T("Por ahora no hay en tu árbol ninguna persona nacida en Alemania ni con nacionalidad alemana confirmada, así que todavía no se puede evaluar ninguna vía por ascendencia. El primer paso es investigar tu genealogía para confirmar si realmente hubo un antepasado alemán.","For now there is no person in your tree born in Germany or with confirmed German citizenship, so no descent-based route can be assessed yet. The first step is to research your genealogy to confirm whether there really was a German ancestor.","Por enquanto não há na sua árvore nenhuma pessoa nascida na Alemanha nem com nacionalidade alemã confirmada, portanto ainda não é possível avaliar nenhuma via por ascendência. O primeiro passo é investigar sua genealogia para confirmar se realmente houve um antepassado alemão."),
+      gaps:[], mark:null,
+      legal:"No hay raíz alemana confirmada en la línea (ninguna persona nacida en Alemania ni con nacionalidad alemana confirmada). Sin ese punto de partida no procede evaluar §4/§5/§15/§17 StAG. Recomendar investigación genealógica previa (FamilySearch, Ancestry, MyHeritage; archivos parroquiales, registros civiles y listas de emigración) para establecer el antepasado alemán y su fecha y lugar de nacimiento y emigración."};
+    const inv2=[T("Arma primero un árbol genealógico en FamilySearch, Ancestry o MyHeritage para confirmar si realmente hubo un antepasado nacido en Alemania. Sin ese dato no es posible evaluar ninguna vía por ascendencia.","First build a family tree on FamilySearch, Ancestry or MyHeritage to confirm whether there really was an ancestor born in Germany. Without that, no descent-based route can be assessed.","Monte primeiro uma árvore genealógica no FamilySearch, Ancestry ou MyHeritage para confirmar se realmente houve um antepassado nascido na Alemanha. Sem isso, não é possível avaliar nenhuma via por ascendência."), ...inv];
+    return {vias:[infoVia, ...naturaliz], investigate: inv2};
+  }
 
   return {vias, investigate:inv};
 }
@@ -448,6 +494,12 @@ function render(){
         <div class="field"><label>${T("Año de nacimiento","Birth year","Ano de nascimento")}</label><input id="i_year" inputmode="numeric" value="${esc(a.birthYear)}" oninput="state.applicant.birthYear=this.value"></div>
         <div class="field"><label>${T("País de nacimiento","Birth country","País de nascimento")}</label><select onchange="state.applicant.country=this.value">${ctryOpts(a.country)}</select></div>
       </div>
+      ${chips(T("¿Fuiste adoptado/a?","Were you adopted?","Você foi adotado/a?"),
+        [["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickAppAdopted",a.adopted)}
+      ${a.adopted==="si"?chips(T("¿A qué edad fuiste adoptado/a?","At what age were you adopted?","Com que idade você foi adotado/a?"),
+        [["menor","Siendo menor de edad","As a minor","Sendo menor de idade"],["adulto","Siendo adulto/a","As an adult","Sendo adulto/a"],["ns","No sé","Not sure","Não sei"]],"pickAppAdAge",a.adoptedAge):""}
+      ${chips(T("¿Prestaste servicio militar voluntario en el ejército de otro país (del que eras nacional) desde el año 2000?","Did you do voluntary military service in another country's army (of which you were a national) since 2000?","Você prestou serviço militar voluntário no exército de outro país (do qual era nacional) desde 2000?"),
+        [["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickAppMil",a.military)}
       ${navBtns(T("Siguiente","Next","Avançar"),!!a.name)}`;
     return;
   }
@@ -507,6 +559,12 @@ function render(){
       ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`,`${esc(child.name||"Esta pessoa")} nasceu dentro do casamento dos seus pais?`),
         [["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickWed",d.childInWedlock)}
       <div class="field" style="margin-top:12px"><label>${T(`¿En qué año se casaron ${esc(state.draft.rel==="padre"?"el padre":"la madre")} y su pareja? (si lo sabes)`,`In what year did ${esc(state.draft.rel==="padre"?"the father":"the mother")} and their spouse marry? (if known)`,`Em que ano ${esc(state.draft.rel==="padre"?"o pai":"a mãe")} e seu cônjuge se casaram? (se souber)`)}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional","Opcional")}"></div>
+      ${chips(T(`¿${esc(d.name||"Esta persona")} fue adoptado/a?`,`Was ${esc(d.name||"this person")} adopted?`,`${esc(d.name||"Esta pessoa")} foi adotado/a?`),
+        [["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickAdopted",d.adopted)}
+      ${d.adopted==="si"?chips(T(`¿A qué edad fue adoptado/a?`,`At what age were they adopted?`,`Com que idade foi adotado/a?`),
+        [["menor","Siendo menor de edad","As a minor","Sendo menor de idade"],["adulto","Siendo adulto/a","As an adult","Sendo adulto/a"],["ns","No sé","Not sure","Não sei"]],"pickAdAge",d.adoptedAge):""}
+      ${chips(T(`¿${esc(d.name||"Esta persona")} prestó servicio militar voluntario en el ejército de otro país (del que era nacional) desde el año 2000?`,`Did ${esc(d.name||"this person")} do voluntary military service in another country's army (of which they were a national) since 2000?`,`${esc(d.name||"Esta pessoa")} prestou serviço militar voluntário no exército de outro país (do qual era nacional) desde 2000?`),
+        [["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickMilP",d.military)}
       ${navBtns(T("Agregar y seguir","Add & continue","Adicionar e continuar"),!!(d.name&&d.childInWedlock))}`;
     return;
   }
@@ -732,7 +790,7 @@ function buildDocSuggestions(facts, chain, verdict){
   if(facts.natz25==="si_apeticion" || facts.natz25==="noeu_apeticion" || ["usa","otro"].includes(facts.natz1914)){
     items.push("Certificado de naturalización del antepasado en el país de destino, con la fecha exacta (o constancia de que NO se naturalizó) — Archivo Nacional o registro de cartas de nacionalidad del país.");
   }
-  if(facts.adoption==="si"){
+  if(facts.adoption==="si" || (chain||[]).some(p=>p&&p.adopted==="si") || (state.applicant&&state.applicant.adopted==="si")){
     items.push("Sentencia o acta de adopción, con la fecha y la edad del adoptado en ese momento — tribunal de familia o Registro Civil.");
   }
   if(facts.namechange==="si"){
@@ -806,6 +864,12 @@ function pickCitizen(v){ snapshot(); const last=state.chain[state.chain.length-1
   else { state.draft={}; state.screen="build_rel"; }
   render(); }
 function pickWed(v){ state.draft.childInWedlock=v; render(); }
+function pickAdopted(v){ state.draft.adopted=v; if(v!=="si") state.draft.adoptedAge=""; render(); }
+function pickAdAge(v){ state.draft.adoptedAge=v; render(); }
+function pickMilP(v){ state.draft.military=v; render(); }
+function pickAppAdopted(v){ state.applicant.adopted=v; if(v!=="si") state.applicant.adoptedAge=""; render(); }
+function pickAppAdAge(v){ state.applicant.adoptedAge=v; render(); }
+function pickAppMil(v){ state.applicant.military=v; render(); }
 function pickFact(v){ state.facts.emigYear=v; render(); }
 function pickFact2(v){ state.facts.matrikel=v; render(); }
 function pickFact3(v){ state.facts.natz1914=v; render(); }
@@ -833,7 +897,7 @@ function advance(){
   if(s==="build_person"){
     if(!(state.draft.name&&state.draft.childInWedlock)) return;
     snapshot();
-    state.chain.push({rel:state.draft.rel,name:state.draft.name,birthYear:state.draft.birthYear,country:state.draft.country,childInWedlock:state.draft.childInWedlock,marriageYear:state.draft.marriageYear||""});
+    state.chain.push({rel:state.draft.rel,name:state.draft.name,birthYear:state.draft.birthYear,country:state.draft.country,childInWedlock:state.draft.childInWedlock,marriageYear:state.draft.marriageYear||"",adopted:state.draft.adopted||"",adoptedAge:state.draft.adoptedAge||"",military:state.draft.military||""});
     const reachedDE = state.draft.country && state.draft.country.toLowerCase().match(/alemania|germany|deutschland/);
     state.draft={};
     if(reachedDE){ buildFactsQueue(); state.screen="facts"; } else { state.screen="build_citizen"; }

@@ -10,6 +10,59 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","
 function isGermanC(p){ return !!(p && ((p.country && /alemania|germany|deutschland/i.test(p.country)) || p.germanCitizen==="si")); }
 function genL(depth, rel){ const f=rel==="madre"; const es=["", f?"Madre":"Padre", f?"Abuela":"Abuelo", f?"Bisabuela":"Bisabuelo", f?"Tatarabuela":"Tatarabuelo"]; return depth<es.length?es[depth]:"Ancestro/a"; }
 
+// Etiquetas legibles de cada respuesta clave y traducción de sus valores (para el volcado completo).
+const FACT_LABELS = {
+  emigYear:"¿Cuándo emigró el antepasado?", matrikel:"¿Tiene matrícula consular (Matrikel)?",
+  natz1914:"¿Se naturalizó en otro país antes de 1914?", persecution:"¿Hubo persecución del Nacionalsocialismo?",
+  persecution_type:"Tipo de persecución", natz25:"¿Se naturalizó voluntariamente en otro país?",
+  natz25_eu:"¿La naturalización fue en la UE/Suiza?", natz25_year:"¿Antes o después de 2024?",
+  natz25_permit:"¿Pidió permiso de conservación (Beibehaltung)?", natz25_when:"¿La naturalización fue antes o después del nacimiento del hijo/a?",
+  adoption:"¿Alguien de la línea fue adoptado?", adoption_age:"¿Adoptado siendo menor o adulto?",
+  marriageloss:"¿Una mujer de la línea se casó con un no-alemán antes de 1953?",
+  mil28:"¿Servicio militar voluntario en otro país desde 2000?", namechange:"¿Cambios/errores de apellido en la línea?",
+  relative:"¿Algún familiar ya obtuvo la nacionalidad por este antepasado?", lives:"¿Vive actualmente en Alemania?",
+  hasGermanDoc:"¿Tiene algún documento alemán del antepasado?", germanDocType:"Tipo de documento alemán",
+  germanDocTypeOther:"Documento (otro, detalle)"
+};
+const FACT_VALUES = {
+  emigYear:{pre1904:"Antes de 1904","1904_1913":"Entre 1904 y 1913",ns:"No se sabe",post1913:"Después de 1913",noemigro:"No emigró"},
+  matrikel:{si:"Sí",no:"No",ns:"No sabe"}, natz1914:{usa:"Sí, en EE.UU.",otro:"Sí, en otro país",no:"No",ns:"No sabe"},
+  persecution:{si:"Sí",no:"No",ns:"No sabe"}, natz25:{si:"Sí",no:"No",ns:"No sabe",si_apeticion:"Sí, a petición propia",noeu_apeticion:"Sí (fuera UE), a petición"},
+  natz25_eu:{si:"Sí (UE/Suiza)",no:"No",ns:"No sabe"}, natz25_year:{antes:"Antes de 2024",desde2024:"En 2024 o después",ns:"No sabe"},
+  natz25_permit:{si:"Sí, concedido",no:"No / no lo pidió",ns:"No sabe"}, natz25_when:{antes:"Antes del nacimiento del hijo/a",despues:"Después del nacimiento del hijo/a",ns:"Fue el solicitante / no sabe"},
+  adoption:{si:"Sí",no:"No",ns:"No sabe"}, adoption_age:{menor:"Menor de edad",adulto:"Adulto",ns:"No sabe"},
+  marriageloss:{si:"Sí",no:"No",ns:"No sabe"}, mil28:{si:"Sí",no:"No",ns:"No sabe"},
+  namechange:{si:"Sí",no:"No",ns:"No sabe"}, relative:{si:"Sí",no:"No",ns:"No sabe"},
+  lives:{si:"Sí",no:"No"}, hasGermanDoc:{si:"Sí",no:"No",ns:"No sabe"},
+  germanDocType:{acta_nac:"Certificado de nacimiento alemán",doc_aleman:"Otro documento alemán",prueba_emig:"Prueba de emigración",otro:"Otro"}
+};
+function factVal(k,v){ if(v==null||v==="") return "—"; const m=FACT_VALUES[k]; return (m&&m[v]!=null)?m[v]:String(v); }
+function wedLbl(v){ return {si:"Sí",no:"No",ns:"No sabe"}[v]||(v?String(v):"—"); }
+function adAgeLbl(v){ return {menor:"Menor de edad",adulto:"Adulto/a",ns:"No sabe"}[v]||(v?String(v):"—"); }
+function dlRow(label,value){ return `<tr><td style="padding:3px 14px 3px 0;color:#64748b;font-size:12.5px;vertical-align:top">${esc(label)}</td><td style="padding:3px 0;font-size:12.5px;font-weight:600">${esc(value)}</td></tr>`; }
+function fullDataDumpHTML(ans){
+  const facts=ans.facts||{}, chain=ans.chain||[], ap=ans.applicant||{};
+  let rows=`<tr><td colspan="2" style="font-weight:700;font-size:12.5px;color:#1d4ed8;padding:6px 0 2px">Solicitante</td></tr>`;
+  rows+=dlRow("Nombre",ap.name||"—")+dlRow("Año de nacimiento",ap.birthYear||"—")+dlRow("País de nacimiento",ap.country||"—");
+  rows+=dlRow("¿Adoptado/a?",wedLbl(ap.adopted))+(ap.adopted==="si"?dlRow("Edad al ser adoptado/a",adAgeLbl(ap.adoptedAge)):"")+dlRow("¿Servicio militar extranjero (desde 2000)?",wedLbl(ap.military));
+  chain.forEach((p,i)=>{
+    rows+=`<tr><td colspan="2" style="font-weight:700;font-size:12.5px;color:#1d4ed8;padding:10px 0 2px">${esc(genL(i+1,p.rel))} — ${esc(p.name||"(sin nombre)")}</td></tr>`;
+    rows+=dlRow("Relación",p.rel||"—")+dlRow("Año de nacimiento",p.birthYear||"—")+dlRow("País de nacimiento",p.country||"—");
+    rows+=dlRow("¿Ciudadano alemán?",wedLbl(p.germanCitizen))+dlRow("¿Hijo/a dentro del matrimonio?",wedLbl(p.childInWedlock))+dlRow("Año de matrimonio",p.marriageYear||"—");
+    rows+=dlRow("¿Adoptado/a?",wedLbl(p.adopted))+(p.adopted==="si"?dlRow("Edad al ser adoptado/a",adAgeLbl(p.adoptedAge)):"")+dlRow("¿Servicio militar extranjero (desde 2000)?",wedLbl(p.military));
+  });
+  const skip={notes:1};
+  const keys=Object.keys(facts).filter(k=>!skip[k] && facts[k]!=null && facts[k]!=="");
+  if(keys.length){
+    rows+=`<tr><td colspan="2" style="font-weight:700;font-size:12.5px;color:#1d4ed8;padding:10px 0 2px">Respuestas clave</td></tr>`;
+    keys.forEach(k=>{ rows+=dlRow(FACT_LABELS[k]||k, factVal(k,facts[k])); });
+  }
+  return `<h3 style="font-size:14px;margin:18px 0 6px">📋 Todos los datos ingresados</h3>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 13px">
+      <table style="border-collapse:collapse;width:100%">${rows}</table>
+    </div>`;
+}
+
 const ST = {
   VIABLE: ["#15803d","#dcfce7","Prometedor"],
   DUDOSO: ["#b45309","#fef3c7","Posible"],
@@ -136,6 +189,7 @@ module.exports = async (req, res) => {
 
       ${invList}
       ${notesHtml}
+      ${fullDataDumpHTML(ans)}
       ${legalSection}
       ${docHtml}
       ${draftHtml}
