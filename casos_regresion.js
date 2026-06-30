@@ -153,6 +153,18 @@ const CASES = [
  {id:"41", desc:"Caso real: corte por mujer (madre) pero SIN raíz alemana confirmada → NO debe ofrecer §5 (solo investigar)",
   st:{applicant:ap("Nieto",1970,"chile"),chain:[L("madre","Rosa Calderon",1945,"chile","si"),L("madre","Bisabuela",1920,"chile","ns")],facts:{emigYear:"ns",persecution:"ns",natz25:"ns"}},
   expect:["X:INFO"]},
+ {id:"42", desc:"Caso real Felipe: línea materna larga, el corte determinante es el más ANTIGUO (1874, pre-1949) → §5 NO aplica (A:POCO, sin C)",
+  st:{applicant:ap("Felipe",1979,"chile"),chain:[
+    L("madre","Patricia",1951,"chile","si"),L("madre","Nora",1931,"chile","si"),
+    L("madre","Lidia",1902,"chile","si"),L("madre","Maria Paulina",1874,"chile","si"),
+    L("madre","Anna",1849,"alemania","si")],facts:{emigYear:"pre1904",matrikel:"si",natz1914:"no",persecution:"ns",marriageloss:"ns"}},
+  expect:["A:POCO"]},
+ {id:"43", desc:"Raíz alemana mujer con cónyuge ALEMÁN → su hija matrimonial pre-1975 sí heredó (del padre) → la línea NO se corta (A:VIABLE)",
+  st:{applicant:ap("Hijo",1976,"chile"),chain:[
+    L("madre","Hija",1950,"chile","si"),
+    Object.assign(L("madre","Anna",1925,"alemania","si"),{spouseGerman:"si"})],
+   facts:{emigYear:"post1914",persecution:"no",natz25:"automatica"}},
+  expect:["A:VIABLE"]},
 ];
 
 // ---- 4. Correr y comparar ----

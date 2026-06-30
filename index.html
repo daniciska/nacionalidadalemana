@@ -218,16 +218,26 @@ function analyze(){
   const anyMilitary=A.facts.mil28==="si" || militaryPpl.length>0;
   const militaryNames=militaryPpl.map(p=>p.name).filter(Boolean).join(", ");
   // ----- VIA A: cadena de descendencia -----
-  let breakInfo=null, gaps=[], maritalUnknown=[];
-  for(let i=0;i<A.chain.length;i++){
+  // El corte determinante es el PRIMER fallo de transmisión bajando DESDE el antepasado alemán
+  // (no el más cercano al solicitante): ahí se pierde la nacionalidad y eso fija la ventana del §5.
+  let breakInfo=null, gaps=[], maritalUnknown=[], fatherDocs=[];
+  let gIdx=-1; for(let k=0;k<A.chain.length;k++){ if(isGerman(A.chain[k])) gIdx=k; }  // alemán más alto (más cercano a la raíz)
+  if(gIdx<0) gIdx=A.chain.length-1;                                                   // sin raíz: el gate final lo resuelve
+  for(let i=gIdx;i>=0;i--){
     const parent=A.chain[i], child=childOf(i);
     const cy=yr(child), rel=parent.rel; const my=parseInt(parent.marriageYear);
     let wed=parent.childInWedlock;
     if(wed==="ns" && my && cy){ wed = (my<=cy) ? "si" : "no"; }   // matrimonio antes del nacimiento = matrimonial
     if(!cy){ gaps.push(T(`falta el año de nacimiento de ${child.name||"un familiar"}`,`missing birth year for ${child.name||"a relative"}`,`falta o ano de nascimento de ${child.name||"um familiar"}`)); continue; }
     if(rel==="madre"){
+      // Antes de 1975 el hijo matrimonial heredaba del PADRE. Si el padre (cónyuge) era alemán, el hijo
+      // sí adquirió la nacionalidad por él y la línea NO se corta aquí; si no, o no se sabe, se corta.
       if(wed==="si" && cy<1975){
-        breakInfo={person:child.name, parent:parent.name, year:cy, reason:"genero"}; break;
+        if(parent.spouseGerman==="si"){
+          fatherDocs.push({child:child.name||T("esta persona","this person","esta pessoa"), mother:parent.name||T("la madre","the mother","a mãe")});
+        } else {
+          breakInfo={person:child.name, parent:parent.name, year:cy, reason:"genero", spouseGerman:parent.spouseGerman||"ns"}; break;
+        }
       } else if(wed==="ns" && cy<1975){ maritalUnknown.push(child.name||T("un familiar","a relative","um familiar")); }
     } else if(rel==="padre"){
       if(wed==="no" && cy<1993){
@@ -416,6 +426,9 @@ function analyze(){
   // ----- Lista de "qué averiguar" (todas las incógnitas / "no sé") -----
   const inv=[]; const G2=germanAncestor();
   if(!germanAncestorReached()) inv.push(T("Confirmar quién es tu antepasado alemán, en qué año y lugar nació, si emigró y en qué año lo hizo.","Confirm who your German ancestor is, the year and place they were born, whether they emigrated and in what year.","Confirmar quem é seu antepassado alemão, em que ano e lugar nasceu, se emigrou e em que ano o fez."));
+  // Corte por género con padre desconocido: confirmar la nacionalidad del padre podría cambiar el resultado.
+  fatherDocs.forEach(fd=> inv.push(T(`Documentar la nacionalidad alemana del padre de ${fd.child} (cónyuge de ${fd.mother}): antes de 1975 ${fd.child} heredó la nacionalidad por él, así que es la fuente de la transmisión en ese eslabón y hay que acreditarla.`,`Document the German citizenship of ${fd.child}'s father (${fd.mother}'s spouse): before 1975 ${fd.child} inherited nationality through him, so he is the source of transmission at that link and it must be evidenced.`,`Documentar a nacionalidade alemã do pai de ${fd.child} (cônjuge de ${fd.mother}): antes de 1975 ${fd.child} herdou a nacionalidade por ele, portanto é a fonte da transmissão nesse elo e deve ser comprovada.`)));
+  if(breakInfo && breakInfo.reason==="genero" && breakInfo.spouseGerman!=="no") inv.push(T(`Confirmar la nacionalidad del padre de ${breakInfo.person} (cónyuge de ${breakInfo.parent}): antes de 1975 el hijo matrimonial heredaba del padre, así que si el padre era alemán la línea NO se interrumpe en ese punto.`,`Confirm the nationality of ${breakInfo.person}'s father (${breakInfo.parent}'s spouse): before 1975 a marital child inherited from the father, so if the father was German the line is NOT broken at that point.`,`Confirmar a nacionalidade do pai de ${breakInfo.person} (cônjuge de ${breakInfo.parent}): antes de 1975 o filho matrimonial herdava do pai, portanto se o pai era alemão a linha NÃO se interrompe nesse ponto.`));
   [A.applicant,...A.chain].forEach(p=>{ if(p.name && !parseInt(p.birthYear)) inv.push(T(`Conseguir el año de nacimiento de ${p.name}.`,`Find ${p.name}'s birth year.`,`Obter o ano de nascimento de ${p.name}.`)); });
   if(G2){
     if(["pre1904","1904_1913","ns"].includes(A.facts.emigYear) && (A.facts.matrikel==="ns"||!A.facts.matrikel)) inv.push(T(`Verificar en el archivo invenio si ${G2.name} tuvo inscripción consular (Matrikel).`,`Check the invenio archive for ${G2.name}'s consular registration (Matrikel).`,`Verificar no arquivo invenio se ${G2.name} teve inscrição consular (Matrikel).`));
@@ -559,6 +572,10 @@ function render(){
       ${chips(T(`¿${esc(child.name||"Esta persona")} nació dentro del matrimonio de sus padres?`,`Was ${esc(child.name||"this person")} born within their parents' marriage?`,`${esc(child.name||"Esta pessoa")} nasceu dentro do casamento dos seus pais?`),
         [["si","Sí","Yes","Sim"],["no","No","No","Não"],["ns","No sé","Not sure","Não sei"]],"pickWed",d.childInWedlock)}
       <div class="field" style="margin-top:12px"><label>${T(`¿En qué año se casaron ${esc(state.draft.rel==="padre"?"el padre":"la madre")} y su pareja? (si lo sabes)`,`In what year did ${esc(state.draft.rel==="padre"?"the father":"the mother")} and their spouse marry? (if known)`,`Em que ano ${esc(state.draft.rel==="padre"?"o pai":"a mãe")} e seu cônjuge se casaram? (se souber)`)}</label><input inputmode="numeric" value="${esc(d.marriageYear||"")}" oninput="state.draft.marriageYear=this.value" placeholder="${T("Opcional","Optional","Opcional")}"></div>
+      ${(d.rel==="madre" && parseInt(child.birthYear) && parseInt(child.birthYear)<1975 && d.childInWedlock!=="no") ? `
+        <div class="qhint" style="margin-top:12px">${T(`Antes de 1975, un hijo nacido dentro del matrimonio heredaba la nacionalidad del <b>padre</b>. Por eso necesitamos saber la nacionalidad del padre de ${esc(child.name||"esta persona")}.`,`Before 1975, a child born within marriage inherited nationality from the <b>father</b>. So we need to know the nationality of ${esc(child.name||"this person")}'s father.`,`Antes de 1975, um filho nascido dentro do casamento herdava a nacionalidade do <b>pai</b>. Por isso precisamos saber a nacionalidade do pai de ${esc(child.name||"esta pessoa")}.`)}</div>
+        ${chips(T(`¿El padre de ${esc(child.name||"esta persona")} (el cónyuge de ${esc(d.name||"esta madre")}) tenía nacionalidad alemana?`,`Did ${esc(child.name||"this person")}'s father (${esc(d.name||"this mother")}'s spouse) have German citizenship?`,`O pai de ${esc(child.name||"esta pessoa")} (cônjuge de ${esc(d.name||"esta mãe")}) tinha nacionalidade alemã?`),
+          [["ns","No sé","Not sure","Não sei"],["no","No","No","Não"],["si","Sí, era alemán","Yes, he was German","Sim, era alemão"]],"pickSpouseGerman",d.spouseGerman)}` : ""}
       ${chips(T(`¿${esc(d.name||"Esta persona")} fue adoptado/a?`,`Was ${esc(d.name||"this person")} adopted?`,`${esc(d.name||"Esta pessoa")} foi adotado/a?`),
         [["no","No","No","Não"],["si","Sí","Yes","Sim"],["ns","No sé","Not sure","Não sei"]],"pickAdopted",d.adopted)}
       ${d.adopted==="si"?chips(T(`¿A qué edad fue adoptado/a?`,`At what age were they adopted?`,`Com que idade foi adotado/a?`),
@@ -864,6 +881,7 @@ function pickCitizen(v){ snapshot(); const last=state.chain[state.chain.length-1
   else { state.draft={}; state.screen="build_rel"; }
   render(); }
 function pickWed(v){ state.draft.childInWedlock=v; render(); }
+function pickSpouseGerman(v){ state.draft.spouseGerman=v; render(); }
 function pickAdopted(v){ state.draft.adopted=v; if(v!=="si") state.draft.adoptedAge=""; render(); }
 function pickAdAge(v){ state.draft.adoptedAge=v; render(); }
 function pickMilP(v){ state.draft.military=v; render(); }
@@ -897,7 +915,7 @@ function advance(){
   if(s==="build_person"){
     if(!(state.draft.name&&state.draft.childInWedlock)) return;
     snapshot();
-    state.chain.push({rel:state.draft.rel,name:state.draft.name,birthYear:state.draft.birthYear,country:state.draft.country,childInWedlock:state.draft.childInWedlock,marriageYear:state.draft.marriageYear||"",adopted:state.draft.adopted||"",adoptedAge:state.draft.adoptedAge||"",military:state.draft.military||""});
+    state.chain.push({rel:state.draft.rel,name:state.draft.name,birthYear:state.draft.birthYear,country:state.draft.country,childInWedlock:state.draft.childInWedlock,marriageYear:state.draft.marriageYear||"",spouseGerman:state.draft.spouseGerman||"",adopted:state.draft.adopted||"",adoptedAge:state.draft.adoptedAge||"",military:state.draft.military||""});
     const reachedDE = state.draft.country && state.draft.country.toLowerCase().match(/alemania|germany|deutschland/);
     state.draft={};
     if(reachedDE){ buildFactsQueue(); state.screen="facts"; } else { state.screen="build_citizen"; }

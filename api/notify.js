@@ -49,6 +49,7 @@ function fullDataDumpHTML(ans){
     rows+=`<tr><td colspan="2" style="font-weight:700;font-size:12.5px;color:#1d4ed8;padding:10px 0 2px">${esc(genL(i+1,p.rel))} — ${esc(p.name||"(sin nombre)")}</td></tr>`;
     rows+=dlRow("Relación",p.rel||"—")+dlRow("Año de nacimiento",p.birthYear||"—")+dlRow("País de nacimiento",p.country||"—");
     rows+=dlRow("¿Ciudadano alemán?",wedLbl(p.germanCitizen))+dlRow("¿Hijo/a dentro del matrimonio?",wedLbl(p.childInWedlock))+dlRow("Año de matrimonio",p.marriageYear||"—");
+    if(p.spouseGerman) rows+=dlRow("¿El cónyuge (padre de los hijos) era alemán?",wedLbl(p.spouseGerman));
     rows+=dlRow("¿Adoptado/a?",wedLbl(p.adopted))+(p.adopted==="si"?dlRow("Edad al ser adoptado/a",adAgeLbl(p.adoptedAge)):"")+dlRow("¿Servicio militar extranjero (desde 2000)?",wedLbl(p.military));
   });
   const skip={notes:1};

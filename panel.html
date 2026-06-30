@@ -198,6 +198,7 @@ function fullDataDump(a){
     out+=`<div style="font-weight:700;font-size:12.5px;color:#1d4ed8;margin:10px 0 4px">${esc(genLabel(i+1,p.rel))} — ${esc(p.name||"(sin nombre)")}</div>`;
     out+=dl("Relación",p.rel||"—")+dl("Año de nacimiento",p.birthYear||"—")+dl("País de nacimiento",p.country||"—");
     out+=dl("¿Ciudadano alemán?",wedLabel(p.germanCitizen))+dl("¿Hijo/a dentro del matrimonio?",wedLabel(p.childInWedlock))+dl("Año de matrimonio",p.marriageYear||"—");
+    if(p.spouseGerman) out+=dl("¿El cónyuge (padre de los hijos) era alemán?",wedLabel(p.spouseGerman));
     out+=dl("¿Adoptado/a?",wedLabel(p.adopted))+(p.adopted==="si"?dl("Edad al ser adoptado/a",adAgeLabel(p.adoptedAge)):"")+dl("¿Servicio militar extranjero (desde 2000)?",wedLabel(p.military));
   });
   // Respuestas clave (todas las facts excepto notas, que ya se muestran aparte)
