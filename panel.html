@@ -89,7 +89,45 @@ async function load(){
     LEADS=await r.json();
     if(!Array.isArray(LEADS)) LEADS=[];
     render();
+    ensureEngine().then(()=>{ if(ENGINE) render(); });   // al cargar el motor, refresca los estados en vivo
   }catch(e){ /* 401 manejado */ }
+}
+
+// ---- Motor en vivo: cargamos el MISMO analyze() del cuestionario desde index.html ----
+// Así el panel recalcula cada caso con la lógica más reciente, sin duplicar código ni
+// depender del veredicto que quedó grabado en la BD. Se carga una sola vez.
+let ENGINE=null, ENGINE_ERR=null, ENGINE_P=null;
+function ensureEngine(){
+  if(ENGINE||ENGINE_ERR) return Promise.resolve();
+  if(!ENGINE_P) ENGINE_P=(async()=>{
+    try{
+      const txt=await (await fetch("index.html",{cache:"no-store"})).text();
+      let code=txt.match(/<script>([\s\S]*?)<\/script>/)[1];
+      code=code.replace(/render\(\)\s*;?\s*$/,"");   // no ejecutar la app, solo definir sus funciones
+      code+='\n; return { analyze:analyze, blank:blank,'
+          + ' setState:function(s){ state=Object.assign(blank(),s); },'
+          + ' setLang:function(l){ LANG=l||"es"; },'
+          + ' drafts:(typeof buildConsularDrafts==="function"?buildConsularDrafts:null),'
+          + ' docs:(typeof buildDocSuggestions==="function"?buildDocSuggestions:null) };';
+      ENGINE=(new Function(code))();
+    }catch(e){ ENGINE_ERR=e; console.warn("No se pudo cargar el motor en vivo; se usa el veredicto guardado.",e); }
+  })();
+  return ENGINE_P;
+}
+// Recalcula un lead con el motor actual. Devuelve {verdict, investigate, draft, docs} o null.
+function recalcLead(l){
+  if(!ENGINE) return null;
+  const a=l.answers||{};
+  try{
+    ENGINE.setLang(l.lang||"es");
+    ENGINE.setState({applicant:a.applicant||{}, chain:a.chain||[], facts:a.facts||{}});
+    const res=ENGINE.analyze();
+    const verdict=(res.vias||[]).map(x=>({via:x.k,name:x.name,state:x.state,msg:x.msg,mark:x.mark||null,legal:x.legal||null}));
+    let draft=null, docs=null;
+    try{ if(ENGINE.drafts) draft=ENGINE.drafts(res.vias||[]); }catch(e){}
+    try{ if(ENGINE.docs) docs=ENGINE.docs(a.facts||{}, a.chain||[], res.vias||[]); }catch(e){}
+    return {verdict, investigate:res.investigate||[], draft, docs};
+  }catch(e){ console.warn("Recalculo falló para",l.name,e); return null; }
 }
 
 function render(){
@@ -131,7 +169,8 @@ function render(){
 }
 
 function card(l){
-  const v=Array.isArray(l.verdict)?l.verdict:[];
+  let v=Array.isArray(l.verdict)?l.verdict:[];
+  if(ENGINE && l.status==="completo"){ const rc=recalcLead(l); if(rc) v=rc.verdict; }   // badges con la lógica actual
   const order={VIABLE:0,DUDOSO:1,INFO:2,POCO:3};
   const badges=v.slice().sort((a,b)=>(order[a.state]??9)-(order[b.state]??9))
     .map(x=>{const s=ST[x.state]||["x",x.state];return `<span class="badge b-${s[0]}">${esc(s[1])}</span>`;}).join("")||`<span class="badge b-x">sin veredicto</span>`;
@@ -212,9 +251,23 @@ function fullDataDump(a){
   return out;
 }
 
-function detail(id){
+async function detail(id){
   const l=LEADS.find(x=>x.id===id); if(!l) return;
-  const a=l.answers||{}; const v=Array.isArray(l.verdict)?l.verdict:[];
+  const a=l.answers||{};
+  let v=Array.isArray(l.verdict)?l.verdict:[];
+  let inv=(a.investigate||[]);
+  let liveDraft=null, liveDocs=null, liveNote="";
+  // Recalcular con el motor actual (mismo analyze() del cuestionario)
+  await ensureEngine();
+  const rc=recalcLead(l);
+  if(rc){
+    const sigOld=v.map(x=>x.via+":"+x.state).sort().join(", ");
+    const sigNew=rc.verdict.map(x=>x.via+":"+x.state).sort().join(", ");
+    v=rc.verdict; inv=rc.investigate; liveDraft=rc.draft; liveDocs=rc.docs;
+    liveNote = (sigOld && sigOld!==sigNew)
+      ? `<div style="font-size:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:8px;color:#92400e">↻ Recalculado con la lógica actual. Veredicto guardado originalmente: <b>[${esc(sigOld)}]</b>.</div>`
+      : `<div style="font-size:11.5px;color:#94a3b8;margin-top:6px">↻ Recalculado con la lógica actual.</div>`;
+  }
   const markA=(v.find(x=>x.via==="A")||{}).mark||null;
   const rows=[{p:a.applicant||{},rel:null}].concat((a.chain||[]).map(x=>({p:x,rel:x.rel})));
   const tree=rows.map((row,idx)=>{
@@ -232,24 +285,24 @@ function detail(id){
     const s=ST[x.state]||["x",x.state];
     return `<div class="res ${s[0]}"><span class="badge b-${s[0]}">${esc(s[1])}</span><div style="font-weight:700;font-size:14px;margin:5px 0 2px">${esc(x.name||x.via)}</div>${x.msg?`<div style="font-size:13px">${esc(x.msg)}</div>`:""}</div>`;
   }).join("");
-  const inv=(a.investigate||[]);
   const m=document.createElement("div"); m.className="modal"; m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div class="sheet">
     <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(l.name||"(sin nombre)")}</h2><button class="btn" onclick="this.closest('.modal').remove()">✕</button></div>
     <p class="muted" style="font-size:13px;margin:4px 0 0">${esc(l.email||"—")} · ${esc(l.phone||"—")} · ${esc(fmtCL(l.created_at))} (hora Chile)</p>
+    ${liveNote}
     <h3>Árbol familiar</h3><div class="tree2">${tree}</div>
     <h3>Vías evaluadas</h3>${vias||'<div class="muted" style="font-size:13px">Sin vías.</div>'}
     ${fullDataDump(a)}
     ${inv.length?`<h3>Qué averiguar</h3><ul class="docs">${inv.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${(a.facts&&a.facts.notes)?`<h3>Nota del solicitante</h3><div style="font-size:13px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(a.facts.notes)}</div>`:""}
     ${(()=>{ const li=v.filter(x=>x.legal); return li.length?`<h3>⚖️ Análisis técnico (uso interno)</h3><div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:11px 13px">${li.map(x=>`<div style="margin-bottom:9px"><div style="font-weight:700;font-size:13px">${esc(x.name||x.via)} — ${esc((ST[x.state]||["","?"])[1])}</div><div style="font-size:13px;color:#334155">${esc(x.legal)}</div></div>`).join("")}</div>`:""; })()}
-    ${(()=>{ let cd=a.consular_draft||buildDraftFromData(a,v); if(!cd) return ""; if(typeof cd==="string") cd={es:cd};
+    ${(()=>{ let cd=liveDraft||a.consular_draft||buildDraftFromData(a,v); if(!cd) return ""; if(typeof cd==="string") cd={es:cd};
       const NM={es:"Español",en:"English",pt:"Português"}; const ls=Object.keys(cd);
       return `<h3>✉️ Borrador para el Consulado</h3>
         <div style="display:flex;gap:6px;margin-bottom:8px">${ls.map((l,i)=>`<span class="chip ${i===0?'on':''}" onclick="draftTab(this,'dft_${l}')">${NM[l]||l}</span>`).join("")}</div>
         ${ls.map((l,i)=>`<div id="dft_${l}" class="dtab" style="display:${i===0?'block':'none'}"><div style="font-size:12.5px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 13px">${esc(cd[l])}</div><button class="btn" style="margin-top:8px" onclick="copyEl(this)">Copiar</button></div>`).join("")}`;
     })()}
-    ${(()=>{ const ds=a.doc_suggestions; if(!ds||!ds.length) return "";
+    ${(()=>{ const ds=liveDocs||a.doc_suggestions; if(!ds||!ds.length) return "";
       return `<h3>📎 Documentación a adjuntar</h3>
         <ul class="docs">${ds.map(x=>`<li style="margin-bottom:6px">${esc(x)}</li>`).join("")}</ul>
         <p style="font-size:11.5px;color:#94a3b8;margin-top:4px">Sugerencia orientativa. Verificar disponibilidad según cada caso.</p>`; })()}
